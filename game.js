@@ -151,8 +151,8 @@ class Chest {
             randomZ = Math.floor(Math.random() * (max - min + 1)) + min;
         }
 
-        chest.scale.set(10, 10, 10);
-        chest.position.set(randomX, -3, randomZ);
+        chest.scale.set(15, 15, 15);
+        chest.position.set(randomX, 0, randomZ);
 
         scene.add(chest);
 
@@ -196,7 +196,7 @@ async function createChest() {
 let boats = [];
 const N_BOATS = 3;
 
-async function createBoats() {
+async function createBoat() {
     if (!dummyModel) {
         dummyModel = await loadModel("textures/boat/scene.gltf");
     }
@@ -274,19 +274,15 @@ async function init() {
 
     const pmremGenerator = new THREE.PMREMGenerator(renderer);
 
-    function updateSun() {
-        const phi = THREE.MathUtils.degToRad(90 - parameters.elevation);
-        const theta = THREE.MathUtils.degToRad(parameters.azimuth);
+    const phi = THREE.MathUtils.degToRad(90 - parameters.elevation);
+    const theta = THREE.MathUtils.degToRad(parameters.azimuth);
 
-        sun.setFromSphericalCoords(1, phi, theta);
+    sun.setFromSphericalCoords(1, phi, theta);
 
-        sky.material.uniforms["sunPosition"].value.copy(sun);
-        water.material.uniforms["sunDirection"].value.copy(sun).normalize();
+    sky.material.uniforms["sunPosition"].value.copy(sun);
+    water.material.uniforms["sunDirection"].value.copy(sun).normalize();
 
-        scene.environment = pmremGenerator.fromScene(sky).texture;
-    }
-
-    updateSun();
+    scene.environment = pmremGenerator.fromScene(sky).texture;
 
     //
 
@@ -302,6 +298,11 @@ async function init() {
     for (let i = 0; i < N_CHESTS; i++) {
         const chest = await createChest();
         chests.push(chest);
+    }
+
+    for (let i = 0; i < N_BOATS; i++) {
+        const boat = await createBoat();
+        boats.push(boat);
     }
 
     //
@@ -396,6 +397,10 @@ function animate() {
 
     for (let i = 0; i < chests.length; i++) {
         chests[i].update();
+    }
+
+    for (let i = 0; i < boats.length; i++) {
+        boats[i].update();
     }
 
     checkCollisions();
