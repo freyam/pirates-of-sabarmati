@@ -10,6 +10,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 let camera, scene, renderer;
 let controls, water, sun;
+let timeElapsed = 0;
 
 const loader = new GLTFLoader();
 
@@ -19,8 +20,8 @@ class Ship {
             const ship = gltf.scene;
 
             ship.scale.set(4, 4, 4);
-            ship.position.set(15, -60, 60);
-            ship.rotation.y = -4.5;
+            ship.position.set(20, -60, 45);
+            ship.rotation.y = -4.32;
 
             scene.add(ship);
 
@@ -66,6 +67,10 @@ class Ship {
 
             this.ship.rotation.y += this.speed.rotation; // turn left-right
             this.ship.translateX(this.speed.velocity); // move forward-backward
+
+            camera.rotation.x = 0;
+            camera.rotation.y += this.speed.rotation;
+            camera.rotation.z = 0;
         }
     }
 
@@ -75,8 +80,8 @@ class Ship {
     }
 
     reset() {
-        this.ship.position.set(15, -60, 60);
-        this.ship.rotation.y = -4.5;
+        this.ship.position.set(20, -60, 45);
+        this.ship.rotation.y = -4.32;
         this.ship.visible = true;
     }
 
@@ -121,7 +126,7 @@ class Boat {
 
     reset() {
         this.boat.position.set(15, -60, 60);
-        this.boat.rotation.y = -4.5;
+        this.boat.rotation.y = 0;
         this.boat.visible = true;
     }
 
@@ -183,7 +188,7 @@ async function loadModel(URI) {
 let chests_looted = 0;
 
 let chests = [];
-const N_CHESTS = 4;
+const N_CHESTS = 5;
 
 async function createChest() {
     if (!dummyModel) {
@@ -218,13 +223,14 @@ async function init() {
 
     scene = new THREE.Scene();
 
-    camera = new THREE.PerspectiveCamera(
-        55,
-        window.innerWidth / window.innerHeight,
-        1,
-        20000
-    );
-    camera.position.set(30, 30, 100);
+    const FOV = 60;
+    const ASPECT = window.innerWidth / window.innerHeight;
+    const NEAR = 0.1;
+    const FAR = 1000;
+
+    camera = new THREE.PerspectiveCamera(FOV, ASPECT, NEAR, FAR);
+    camera.position.set(40, 60, 100);
+    camera.lookAt(scene.position);
 
     //
 
@@ -343,6 +349,8 @@ async function init() {
 
         if (key == "r") {
             ship.reset();
+            camera.position.set(40, 60, 100);
+            camera.lookAt(scene.position);
         }
     });
 
@@ -393,6 +401,8 @@ function checkCollisions() {
 function animate() {
     requestAnimationFrame(animate);
 
+    timeElapsed += 0.01;
+
     ship.update();
 
     for (let i = 0; i < chests.length; i++) {
@@ -403,13 +413,20 @@ function animate() {
         boats[i].update();
     }
 
-    checkCollisions();
-    console.log(chests_looted);
+    if (ship.ship) {
+        let newPosition = new THREE.Vector3();
 
-    render();
-}
+        newPosition.copy(ship.ship.position);
+        newPosition.x += 30;
+        newPosition.z += 45;
+        newPosition.y = 60;
 
-function render() {
+        camera.position.lerp(newPosition, 0.1);
+    }
+
     water.material.uniforms["time"].value += 1.0 / 60.0;
+
+    checkCollisions();
+
     renderer.render(scene, camera);
 }
