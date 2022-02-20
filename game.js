@@ -12,6 +12,9 @@ let camera, scene, renderer;
 let controls, water, sun;
 let timeElapsed = 0;
 
+const SHIP_SPEED = 1.0;
+const BOAT_SPEED = 0.75;
+
 const loader = new GLTFLoader();
 
 class Ship {
@@ -20,8 +23,8 @@ class Ship {
             const ship = gltf.scene;
 
             ship.scale.set(4, 4, 4);
-            ship.position.set(20, -60, 45);
-            ship.rotation.y = -4.32;
+            ship.position.set(0, -60, 0);
+            ship.rotation.y = 0;
 
             scene.add(ship);
 
@@ -39,16 +42,24 @@ class Ship {
         });
     }
 
+    getPosition() {
+        return this.boat.position;
+    }
+
+    getRotation() {
+        return this.boat.rotation;
+    }
+
     update() {
         if (this.ship) {
             if (this.movement.forward) {
-                this.speed.velocity = 1.0;
+                this.speed.velocity = SHIP_SPEED;
             } else if (!this.movement.backward) {
                 this.speed.velocity = 0;
             }
 
             if (this.movement.backward) {
-                this.speed.velocity = -1.0;
+                this.speed.velocity = -SHIP_SPEED;
             } else if (!this.movement.forward) {
                 this.speed.velocity = 0;
             }
@@ -69,6 +80,7 @@ class Ship {
             this.ship.translateX(this.speed.velocity); // move forward-backward
 
             camera.rotation.x = 0;
+            camera.translateX(this.speed.velocity); // move forward-backward
             camera.rotation.y += this.speed.rotation;
             camera.rotation.z = 0;
         }
@@ -80,8 +92,8 @@ class Ship {
     }
 
     reset() {
-        this.ship.position.set(20, -60, 45);
-        this.ship.rotation.y = -4.32;
+        this.ship.position.set(0, -60, 0);
+        this.ship.rotation.y = 0;
         this.ship.visible = true;
     }
 
@@ -91,33 +103,96 @@ class Ship {
 }
 
 const ship = new Ship();
-
 class Boat {
     constructor(GLTFscene) {
-        loader.load("textures/boat/scene.gltf", (gltf) => {
-            const boat = GLTFscene;
+        const boat = GLTFscene;
 
-            boat.scale.set(4, 4, 4);
-            boat.position.set(15, -60, 60);
-            boat.rotation.y = -4.5;
+        let max = 500;
+        let min = -max;
 
-            scene.add(boat);
+        let randomX = 0;
+        let randomZ = 0;
 
-            this.boat = boat;
-            this.speed = {
-                velocity: 0,
-                rotation: 0,
-            };
-            this.movement = {
-                forward: false,
-                backward: false,
-                left: false,
-                right: false,
-            };
-        });
+        let shipX = 15;
+        let shipZ = 15;
+
+        while (
+            Math.abs(randomX - shipX) <= 50 &&
+            Math.abs(randomZ - shipZ) <= 25
+        ) {
+            randomX = Math.floor(Math.random() * (max - min + 1)) + min;
+            randomZ = Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        boat.scale.set(0.05, 0.05, 0.05);
+        boat.position.set(randomX, 0, randomZ);
+
+        scene.add(boat);
+
+        this.boat = boat;
+        this.speed = {
+            velocity: 0,
+            rotation: 0,
+        };
+        this.movement = {
+            forward: false,
+            backward: false,
+            left: false,
+            right: false,
+        };
     }
 
-    update() {}
+    update(shipPosition, shipRotation) {
+        this.speed.velocity = BOAT_SPEED;
+        this.speed.rotation = 0.025;
+
+        // console.log(
+        //     "Ship Position " +
+        //         shipPosition.x +
+        //         " " +
+        //         shipPosition.y +
+        //         " " +
+        //         shipPosition.z
+        // );
+        // console.log("Ship Direction " + shipRotation);
+        // console.log(
+        //     "Boat Position " +
+        //         this.boat.position.x +
+        //         " " +
+        //         this.boat.position.y +
+        //         " " +
+        //         this.boat.position.z
+        // );
+
+        if (shipPosition.x > this.boat.position.x) {
+            this.boat.translateX(this.speed.velocity);
+        } else if (shipPosition.x < this.boat.position.x) {
+            this.boat.translateX(-this.speed.velocity);
+        }
+
+        if (shipPosition.z > this.boat.position.z) {
+            this.boat.translateZ(this.speed.velocity);
+        } else if (shipPosition.z < this.boat.position.z) {
+            this.boat.translateZ(-this.speed.velocity);
+        }
+
+        // rotate boat to face ship
+        if (shipPosition.x > this.boat.position.x) {
+            this.boat.rotation.y += this.speed.rotation;
+        }
+
+        if (shipPosition.x < this.boat.position.x) {
+            this.boat.rotation.y -= this.speed.rotation;
+        }
+
+        if (shipPosition.z > this.boat.position.z) {
+            this.boat.rotation.y += this.speed.rotation;
+        }
+
+        if (shipPosition.z < this.boat.position.z) {
+            this.boat.rotation.y -= this.speed.rotation;
+        }
+    }
 
     stop() {
         this.speed.velocity = 0;
@@ -132,6 +207,11 @@ class Boat {
 
     hide() {
         this.boat.visible = !this.boat.visible;
+    }
+
+    remove() {
+        console.log("removing boat");
+        scene.remove(this.boat);
     }
 }
 
@@ -188,13 +268,10 @@ async function loadModel(URI) {
 let chests_looted = 0;
 
 let chests = [];
-const N_CHESTS = 5;
+const N_CHESTS = 0;
 
 async function createChest() {
-    if (!dummyModel) {
-        dummyModel = await loadModel("textures/chest/scene.gltf");
-    }
-
+    if (!dummyModel) dummyModel = await loadModel("textures/chest/scene.gltf");
     return new Chest(dummyModel.clone());
 }
 
@@ -202,10 +279,7 @@ let boats = [];
 const N_BOATS = 3;
 
 async function createBoat() {
-    if (!dummyModel) {
-        dummyModel = await loadModel("textures/boat/scene.gltf");
-    }
-
+    if (!dummyModel) dummyModel = await loadModel("textures/boat/scene.gltf");
     return new Boat(dummyModel.clone());
 }
 
@@ -226,10 +300,12 @@ async function init() {
     const FOV = 60;
     const ASPECT = window.innerWidth / window.innerHeight;
     const NEAR = 0.1;
-    const FAR = 1000;
+    const FAR = 2000;
 
     camera = new THREE.PerspectiveCamera(FOV, ASPECT, NEAR, FAR);
-    camera.position.set(40, 60, 100);
+
+    camera.position.set(40, 30, 50);
+
     camera.lookAt(scene.position);
 
     //
@@ -350,7 +426,12 @@ async function init() {
         if (key == "r") {
             ship.reset();
             camera.position.set(40, 60, 100);
-            camera.lookAt(scene.position);
+            camera.lookAt(0, 0, 0);
+
+            // for (let i = 0; i < N_BOATS; i++) {
+            //     const boat = await createBoat();
+            //     boats.push(boat);
+            // }
         }
     });
 
@@ -396,12 +477,27 @@ function checkCollisions() {
             }
         });
     }
+    if (ship.ship) {
+        boats.forEach((boat) => {
+            if (isColliding(ship.ship, boat.boat)) {
+                boat.remove();
+                boats.splice(boats.indexOf(boat), 1);
+            }
+        });
+    }
+}
+
+function calculateOffset(position1, position2) {
+    let offset = new THREE.Vector3();
+    offset.addVectors(position1, position2).divideScalar(2);
+    offset.y = position1.y;
+    return offset;
 }
 
 function animate() {
     requestAnimationFrame(animate);
 
-    timeElapsed += 0.01;
+    timeElapsed += 1;
 
     ship.update();
 
@@ -410,18 +506,40 @@ function animate() {
     }
 
     for (let i = 0; i < boats.length; i++) {
-        boats[i].update();
+        if (timeElapsed % 200 == 0) {
+            boats[i].boat.rotation.y = -ship.ship.rotation.y;
+
+            let offset = calculateOffset(
+                boats[i].boat.position,
+                ship.ship.position
+            );
+
+            boats[i].update(ship.ship.position, ship.ship.rotation.y);
+        }
     }
 
     if (ship.ship) {
         let newPosition = new THREE.Vector3();
 
-        newPosition.copy(ship.ship.position);
-        newPosition.x += 30;
-        newPosition.z += 45;
-        newPosition.y = 60;
+        newPosition.x =
+            Math.cos(Math.PI - ship.ship.rotation.y) * 100 +
+            ship.ship.position.x;
+        newPosition.z =
+            Math.sin(Math.PI - ship.ship.rotation.y) * 100 +
+            ship.ship.position.z;
+        newPosition.y = 40;
 
-        camera.position.lerp(newPosition, 0.1);
+        camera.position.set(newPosition.x, newPosition.y, newPosition.z);
+
+        newPosition.x =
+            Math.cos(Math.PI - ship.ship.rotation.y) * 1000 -
+            ship.ship.position.x;
+        newPosition.z =
+            Math.sin(Math.PI - ship.ship.rotation.y) * 1000 -
+            ship.ship.position.z;
+        newPosition.y = 40;
+
+        camera.lookAt(-newPosition.x, newPosition.y, -newPosition.z);
     }
 
     water.material.uniforms["time"].value += 1.0 / 60.0;
