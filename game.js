@@ -12,12 +12,14 @@ let camera, scene, renderer;
 let controls, water, sun;
 let timeElapsed = 0;
 
-const SHIP_SPEED = 1.0;
-const BOAT_SPEED = 0.75;
+const SHIP_SPEED = 1.5;
+const BOAT_SPEED = 1.0;
 
 const oceanAudio = new Audio("sounds/ocean.mp3");
 const chestAudio = new Audio("sounds/chest.mp3");
 const shipAudio = new Audio("sounds/ship.mp3");
+const firingAudio = new Audio("sounds/firing.mp3");
+const reelingAudio = new Audio("sounds/reeling.mp3");
 
 const loader = new GLTFLoader();
 
@@ -28,7 +30,7 @@ class Ship {
 
             ship.scale.set(4, 4, 4);
             ship.position.set(0, -60, 0);
-            ship.rotation.y = 0;
+            ship.rotation.y = (90 * Math.PI) / 180;
 
             scene.add(ship);
 
@@ -42,6 +44,7 @@ class Ship {
                 backward: false,
                 left: false,
                 right: false,
+                boost: false,
             };
         });
     }
@@ -80,13 +83,22 @@ class Ship {
                 this.speed.rotation = 0;
             }
 
-            this.ship.rotation.y += this.speed.rotation; // turn left-right
-            this.ship.translateX(this.speed.velocity); // move forward-backward
+            if (this.movement.backward) this.speed.rotation *= -1;
 
-            camera.rotation.x = 0;
-            camera.translateX(this.speed.velocity); // move forward-backward
+            if (this.movement.boost) {
+                if (this.movement.forward || this.movement.backward) {
+                    this.speed.velocity = this.speed.velocity * 2;
+                }
+                if (this.movement.left || this.movement.right) {
+                    this.speed.rotation = this.speed.rotation * 2;
+                }
+            }
+
+            this.ship.rotation.y += this.speed.rotation;
+            this.ship.translateX(this.speed.velocity);
+
             camera.rotation.y += this.speed.rotation;
-            camera.rotation.z = 0;
+            camera.translateX(this.speed.velocity);
         }
     }
 
@@ -97,7 +109,7 @@ class Ship {
 
     reset() {
         this.ship.position.set(0, -60, 0);
-        this.ship.rotation.y = 0;
+        this.ship.rotation.y = (90 * Math.PI) / 180;
         this.ship.visible = true;
     }
 
@@ -121,8 +133,8 @@ class Boat {
         let shipZ = 15;
 
         while (
-            Math.abs(randomX - shipX) <= 50 &&
-            Math.abs(randomZ - shipZ) <= 25
+            Math.abs(randomX - shipX) <= 200 &&
+            Math.abs(randomZ - shipZ) <= 200
         ) {
             randomX = Math.floor(Math.random() * (max - min + 1)) + min;
             randomZ = Math.floor(Math.random() * (max - min + 1)) + min;
@@ -146,7 +158,16 @@ class Boat {
         };
     }
 
-    update() {}
+    update(shipPosition, shipRotation) {
+        this.speed.velocity = BOAT_SPEED;
+        this.boat.translateX(this.speed.velocity);
+
+        let boatPosition = this.boat.position;
+
+        if (shipPosition.x > boatPosition.x) {
+            this.boat.rotation.y += 0.1;
+        }
+    }
 
     stop() {
         this.speed.velocity = 0;
@@ -164,7 +185,6 @@ class Boat {
     }
 
     remove() {
-        console.log("removing boat");
         scene.remove(this.boat);
     }
 }
@@ -173,7 +193,7 @@ class Chest {
     constructor(GLTFscene) {
         const chest = GLTFscene;
 
-        let max = 750;
+        let max = 1000;
         let min = -max;
 
         let randomX = 0;
@@ -182,11 +202,11 @@ class Chest {
         let shipX = 15;
         let shipZ = 15;
 
-        while (Math.abs(randomX - shipX) <= 50) {
+        while (Math.abs(randomX - shipX) <= 200) {
             randomX = Math.floor(Math.random() * (max - min + 1)) + min;
         }
 
-        while (Math.abs(randomZ - shipZ) <= 25) {
+        while (Math.abs(randomZ - shipZ) <= 200) {
             randomZ = Math.floor(Math.random() * (max - min + 1)) + min;
         }
 
@@ -209,6 +229,82 @@ class Chest {
     }
 }
 
+class Diamond {
+    constructor(GLTFscene, chestPosition) {
+        const diamond = GLTFscene;
+
+        diamond.scale.set(0.5, 0.5, 0.5);
+        diamond.position.set(
+            chestPosition.x,
+            chestPosition.y + 100,
+            chestPosition.z
+        );
+
+        scene.add(diamond);
+
+        this.diamond = diamond;
+        this.isColliding = false;
+    }
+
+    update(chest, chestPosition) {
+        if (this.diamond) {
+            this.diamond.rotation.y += 0.05;
+        }
+
+        if (this.isColliding) {
+            this.diamond.position.y -= 0.5;
+            reelingAudio.play();
+        } else {
+            if (this.diamond.position.y == chestPosition.y + 100) return;
+            this.diamond.position.y += 0.5;
+        }
+
+        if (this.diamond.position.y == chestPosition.y + 30) {
+            chests_looted += 1;
+
+            reelingAudio.pause();
+            chestAudio.play();
+
+            this.isColliding = false;
+
+            return "chest_looted";
+        }
+
+        return "chest_not_looted";
+    }
+
+    remove() {
+        scene.remove(this.diamond);
+    }
+}
+
+class CanonBall {
+    constructor(GLTFscene, cannonPosition) {
+        const canonBall = GLTFscene;
+
+        canonBall.scale.set(0.5, 0.5, 0.5);
+        canonBall.position.set(
+            cannonPosition.x,
+            cannonPosition.y,
+            cannonPosition.z
+        );
+
+        scene.add(canonBall);
+
+        this.canonBall = canonBall;
+    }
+
+    update() {
+        if (this.canonBall) {
+            this.canonBall.rotation.y += 0.05;
+        }
+    }
+
+    remove() {
+        scene.remove(this.canonBall);
+    }
+}
+
 let dummyModel = null;
 
 async function loadModel(URI) {
@@ -222,15 +318,24 @@ async function loadModel(URI) {
 let chests_looted = 0;
 
 let chests = [];
-const N_CHESTS = 5;
+let N_CHESTS = 15;
+
+let diamonds = [];
+let N_DIAMONDS = N_CHESTS;
 
 async function createChest() {
     if (!dummyModel) dummyModel = await loadModel("textures/chest/scene.gltf");
     return new Chest(dummyModel.clone());
 }
 
+async function createDiamond(chestPosition) {
+    if (!dummyModel)
+        dummyModel = await loadModel("textures/diamond/scene.gltf");
+    return new Diamond(dummyModel.clone(), chestPosition);
+}
+
 let boats = [];
-const N_BOATS = 3;
+let N_BOATS = 3;
 
 async function createBoat() {
     if (!dummyModel) dummyModel = await loadModel("textures/boat/scene.gltf");
@@ -276,9 +381,9 @@ async function init() {
     );
     document.head.appendChild(link);
 
-    renderText("Pirates", "#98C1D9", 10, 10);
-    renderText("of", "#EE6C4D", 150, 10);
-    renderText("Sabarmati", "#3D5A80", 10, 60);
+    // renderText("Pirates", "#98C1D9", 10, 10);
+    // renderText("of", "#EE6C4D", 150, 10);
+    // renderText("Sabarmati", "#3D5A80", 10, 60);
 
     //
 
@@ -286,20 +391,11 @@ async function init() {
 
     const FOV = 60;
     const ASPECT = window.innerWidth / window.innerHeight;
-    const NEAR = 0.1;
+    let NEAR = 0.1;
     const FAR = 2000;
 
     camera = new THREE.PerspectiveCamera(FOV, ASPECT, NEAR, FAR);
-
-    let newPosition = new THREE.Vector3();
-
-    newPosition.x = Math.cos(Math.PI) * 100;
-    newPosition.y = 50;
-    newPosition.z = Math.sin(Math.PI) * 100;
-
-    camera.position.set(newPosition.x, newPosition.y, newPosition.z);
-
-    camera.lookAt(scene.position);
+    camera.position.set(0, 50, 100);
 
     //
 
@@ -319,9 +415,9 @@ async function init() {
             }
         ),
         sunDirection: new THREE.Vector3(),
-        sunColor: 0xffffff,
+        sunColor: 0xf0f0f0,
         waterColor: 0x001e0f,
-        distortionScale: 3.7,
+        distortionScale: 1,
         fog: scene.fog !== undefined,
     });
 
@@ -330,9 +426,9 @@ async function init() {
     scene.add(water);
 
     if (water) {
-        oceanAudio.loop = true;
-        oceanAudio.volume = 0.25;
         oceanAudio.play();
+        oceanAudio.loop = true;
+        oceanAudio.volume = 0.1;
     }
 
     // Skybox
@@ -344,8 +440,8 @@ async function init() {
     const skyUniforms = sky.material.uniforms;
 
     skyUniforms["turbidity"].value = 10;
-    skyUniforms["rayleigh"].value = 2;
-    skyUniforms["mieCoefficient"].value = 0.005;
+    skyUniforms["rayleigh"].value = 1;
+    skyUniforms["mieCoefficient"].value = 0.001;
     skyUniforms["mieDirectionalG"].value = 0.8;
 
     const parameters = {
@@ -388,6 +484,13 @@ async function init() {
         boats.push(boat);
     }
 
+    dummyModel = null;
+
+    for (let i = 0; i < N_DIAMONDS; i++) {
+        const diamond = await createDiamond(chests[i].chest.position);
+        diamonds.push(diamond);
+    }
+
     //
 
     window.addEventListener("resize", function () {
@@ -416,6 +519,10 @@ async function init() {
             ship.movement.right = true;
         }
 
+        if (key == "b") {
+            ship.movement.boost = true;
+        }
+
         if (key == " ") {
             ship.stop();
         }
@@ -426,6 +533,10 @@ async function init() {
 
         if (key == "r") {
             ship.reset();
+        }
+
+        if (key == "m") {
+            oceanAudio.muted = !oceanAudio.muted;
         }
     });
 
@@ -447,49 +558,32 @@ async function init() {
         if (key == "ArrowRight" || key == "d") {
             ship.movement.right = false;
         }
+
+        if (key == "b") {
+            ship.movement.boost = false;
+        }
     });
 }
 
 function isColliding(object1, object2) {
     const conditions = [
-        object1.position.x - object2.position.x < 50,
-        object1.position.x - object2.position.x > -50,
-        object1.position.z - object2.position.z < 25,
-        object1.position.z - object2.position.z > -25,
+        object1.position.x - object2.position.x < 100,
+        object1.position.x - object2.position.x > -100,
+        object1.position.z - object2.position.z < 50,
+        object1.position.z - object2.position.z > -50,
     ];
 
     return conditions.every((condition) => condition);
 }
 
 function checkCollisions() {
-    if (ship.ship) {
-        chests.forEach((chest) => {
-            if (isColliding(ship.ship, chest.chest)) {
-                chest.remove();
-                chests_looted += 1;
-
-                // play chest sound
-                chestAudio.play();
-
-                chests.splice(chests.indexOf(chest), 1);
-            }
-        });
-    }
-    if (ship.ship) {
-        boats.forEach((boat) => {
-            if (isColliding(ship.ship, boat.boat)) {
-                boat.remove();
-                boats.splice(boats.indexOf(boat), 1);
-            }
-        });
-    }
-}
-
-function calculateOffset(position1, position2) {
-    let offset = new THREE.Vector3();
-    offset.addVectors(position1, position2).divideScalar(2);
-    offset.y = position1.y;
-    return offset;
+    if (ship.ship)
+        for (let i = 0; i < chests.length; ++i)
+            if (diamonds[i].diamond)
+                diamonds[i].isColliding = isColliding(
+                    ship.ship,
+                    chests[i].chest
+                );
 }
 
 shipAudio.loop = true;
@@ -501,26 +595,54 @@ function animate() {
 
     timeElapsed += 1;
 
+    document.getElementById("hud-top-time").innerHTML =
+        (timeElapsed / 100).toFixed(1) + "s";
+    document.getElementById("hud-top-score").innerHTML =
+        chests_looted + " / " + N_CHESTS;
+
     ship.update();
 
     for (let i = 0; i < chests.length; i++) {
         chests[i].update();
     }
 
+    for (let i = 0; i < diamonds.length; i++) {
+        let status = diamonds[i].update(chests[i], chests[i].chest.position);
+        if (status == "chest_looted") {
+            diamonds[i].remove();
+            diamonds.splice(i, 1);
+
+            chests[i].remove();
+            chests.splice(i, 1);
+
+            i--;
+        }
+    }
+
     for (let i = 0; i < boats.length; i++) {
-        if (timeElapsed % 200 == 0) {
-            // boats[i].boat.rotation.y = -ship.ship.rotation.y;
-
-            // let offset = calculateOffset(
-            //     boats[i].boat.position,
-            //     ship.ship.position
-            // );
-
-            boats[i].update(ship.ship.position, ship.ship.rotation.y);
+        if (ship.ship) {
+            let shipPosition = ship.ship.position;
+            let shipRotation = ship.ship.rotation.y;
+            boats[i].update(shipPosition, shipRotation);
         }
     }
 
     if (ship.ship) {
+        // console.log(
+        //     "   " +
+        //         (ship.movement.forward ? 1 : 0) +
+        //         "\n" +
+        //         (ship.movement.left ? 1 : 0) +
+        //         "     " +
+        //         (ship.movement.right ? 1 : 0) +
+        //         "\n" +
+        //         "   " +
+        //         (ship.movement.backward ? 1 : 0) +
+        //         "\n" +
+        //         "   " +
+        //         (ship.movement.boost ? 1 : 0) +
+        //         "\n"
+        // );
         let newPosition = new THREE.Vector3();
 
         newPosition.x =
@@ -547,13 +669,15 @@ function animate() {
         camera.lookAt(newLookAt.x, newLookAt.y, newLookAt.z);
 
         if (isPlayingShipAudio == false) {
-            // if ship is moving forward backward left or right
+            // if atleast one movement key is pressed
+
             if (
                 ship.movement.forward == true ||
                 ship.movement.backward == true ||
                 ship.movement.left == true ||
                 ship.movement.right == true
             ) {
+                shipAudio.volume = 0.5;
                 shipAudio.play();
                 isPlayingShipAudio = true;
             }
@@ -564,21 +688,15 @@ function animate() {
                 ship.movement.left == false &&
                 ship.movement.right == false
             ) {
-                // fade out ship audio
-                while (shipAudio.volume == 0) {
-                    shipAudio.volume -= 0.001;
-                }
                 shipAudio.pause();
-                shipAudio.volume = 0.5;
 
                 isPlayingShipAudio = false;
             }
         }
     }
 
-    water.material.uniforms["time"].value += 1.0 / 60.0;
-
     checkCollisions();
 
+    water.material.uniforms["time"].value += 1.0 / 60.0;
     renderer.render(scene, camera);
 }

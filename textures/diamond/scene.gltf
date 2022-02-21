@@ -1,0 +1,757 @@
+{
+  "accessors": [
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 247,
+      "max": [
+        9.3474750518798828,
+        9.3474760055541992,
+        15
+      ],
+      "min": [
+        -9.3474769592285156,
+        -9.3474760055541992,
+        3.1440474987030029
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 2964,
+      "componentType": 5126,
+      "count": 247,
+      "max": [
+        0.97014248371124268,
+        0.99226397275924683,
+        0.98171591758728027
+      ],
+      "min": [
+        -0.97014248371124268,
+        -0.94516181945800781,
+        -1
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 247,
+      "max": [
+        1,
+        0.99007004499435425,
+        0.83509713411331177,
+        1
+      ],
+      "min": [
+        -1,
+        -1,
+        -0.84247255325317383,
+        -1
+      ],
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 0,
+      "componentType": 5125,
+      "count": 363,
+      "max": [
+        246
+      ],
+      "min": [
+        0
+      ],
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5126,
+      "count": 901,
+      "max": [
+        30
+      ],
+      "min": [
+        0.041656665503978729
+      ],
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 4,
+      "componentType": 5126,
+      "count": 901,
+      "max": [
+        1.5481928586959839,
+        38.099998474121094,
+        5.0835528373718262
+      ],
+      "min": [
+        -9.1648473739624023,
+        35.802288055419922,
+        -13.030966758728027
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 3,
+      "byteOffset": 3604,
+      "componentType": 5126,
+      "count": 2,
+      "max": [
+        30
+      ],
+      "min": [
+        0.041656665503978729
+      ],
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 4,
+      "byteOffset": 10812,
+      "componentType": 5126,
+      "count": 2,
+      "max": [
+        2.5399999618530273,
+        2.5399999618530273,
+        2.5399999618530273
+      ],
+      "min": [
+        2.5399999618530273,
+        2.5399999618530273,
+        2.5399999618530273
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 3,
+      "byteOffset": 3612,
+      "componentType": 5126,
+      "count": 901,
+      "max": [
+        30
+      ],
+      "min": [
+        0.041656665503978729
+      ],
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 5,
+      "componentType": 5126,
+      "count": 901,
+      "max": [
+        0.74827438592910767,
+        0.74777817726135254,
+        0.81915205717086792,
+        0.66751253604888916
+      ],
+      "min": [
+        -7.637632393198146e-08,
+        -0.57676702737808228,
+        -0.66625428199768066,
+        -8.8410111231951305e-08
+      ],
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 3,
+      "byteOffset": 7216,
+      "componentType": 5126,
+      "count": 1,
+      "max": [
+        0
+      ],
+      "min": [
+        0
+      ],
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 5,
+      "byteOffset": 14416,
+      "componentType": 5126,
+      "count": 1,
+      "max": [
+        -0.033725403249263763,
+        0.92943716049194336,
+        0.35677748918533325,
+        0.087857678532600403
+      ],
+      "min": [
+        -0.033725403249263763,
+        0.92943716049194336,
+        0.35677748918533325,
+        0.087857678532600403
+      ],
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 3,
+      "byteOffset": 7220,
+      "componentType": 5126,
+      "count": 2,
+      "max": [
+        30
+      ],
+      "min": [
+        0.041656665503978729
+      ],
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 4,
+      "byteOffset": 10836,
+      "componentType": 5126,
+      "count": 2,
+      "max": [
+        0,
+        0,
+        0
+      ],
+      "min": [
+        0,
+        0,
+        0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 3,
+      "byteOffset": 7228,
+      "componentType": 5126,
+      "count": 2,
+      "max": [
+        30
+      ],
+      "min": [
+        0.041656665503978729
+      ],
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 4,
+      "byteOffset": 10860,
+      "componentType": 5126,
+      "count": 2,
+      "max": [
+        1,
+        1,
+        1
+      ],
+      "min": [
+        1,
+        1,
+        1
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 3,
+      "byteOffset": 7236,
+      "componentType": 5126,
+      "count": 900,
+      "max": [
+        30
+      ],
+      "min": [
+        0.041656665503978729
+      ],
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 5,
+      "byteOffset": 14432,
+      "componentType": 5126,
+      "count": 900,
+      "max": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "min": [
+        0,
+        -0.5585709810256958,
+        0,
+        0.82945674657821655
+      ],
+      "type": "VEC4"
+    }
+  ],
+  "animations": [
+    {
+      "channels": [
+        {
+          "sampler": 0,
+          "target": {
+            "node": 9,
+            "path": "translation"
+          }
+        },
+        {
+          "sampler": 1,
+          "target": {
+            "node": 9,
+            "path": "scale"
+          }
+        },
+        {
+          "sampler": 2,
+          "target": {
+            "node": 9,
+            "path": "rotation"
+          }
+        },
+        {
+          "sampler": 3,
+          "target": {
+            "node": 16,
+            "path": "rotation"
+          }
+        },
+        {
+          "sampler": 4,
+          "target": {
+            "node": 11,
+            "path": "translation"
+          }
+        },
+        {
+          "sampler": 5,
+          "target": {
+            "node": 11,
+            "path": "scale"
+          }
+        },
+        {
+          "sampler": 6,
+          "target": {
+            "node": 11,
+            "path": "rotation"
+          }
+        }
+      ],
+      "name": "Take 001",
+      "samplers": [
+        {
+          "input": 4,
+          "interpolation": "LINEAR",
+          "output": 5
+        },
+        {
+          "input": 6,
+          "interpolation": "LINEAR",
+          "output": 7
+        },
+        {
+          "input": 8,
+          "interpolation": "LINEAR",
+          "output": 9
+        },
+        {
+          "input": 10,
+          "interpolation": "LINEAR",
+          "output": 11
+        },
+        {
+          "input": 12,
+          "interpolation": "LINEAR",
+          "output": 13
+        },
+        {
+          "input": 14,
+          "interpolation": "LINEAR",
+          "output": 15
+        },
+        {
+          "input": 16,
+          "interpolation": "LINEAR",
+          "output": 17
+        }
+      ]
+    }
+  ],
+  "asset": {
+    "extras": {
+      "author": "david.yanez.3d (https://sketchfab.com/david.yanez.3d)",
+      "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+      "source": "https://sketchfab.com/models/f37c7cb3a78e488089449092b82d9c15",
+      "title": "Purple Diamond Crystal Gem"
+    },
+    "generator": "Sketchfab-3.18.6",
+    "version": "2.0"
+  },
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 1452,
+      "byteOffset": 0,
+      "name": "floatBufferViews",
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 5928,
+      "byteOffset": 1452,
+      "byteStride": 12,
+      "name": "floatBufferViews",
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 3952,
+      "byteOffset": 7380,
+      "byteStride": 16,
+      "name": "floatBufferViews",
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 10836,
+      "byteOffset": 11332,
+      "name": "floatBufferViews"
+    },
+    {
+      "buffer": 0,
+      "byteLength": 10884,
+      "byteOffset": 22168,
+      "byteStride": 12,
+      "name": "floatBufferViews"
+    },
+    {
+      "buffer": 0,
+      "byteLength": 28832,
+      "byteOffset": 33052,
+      "byteStride": 16,
+      "name": "floatBufferViews"
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 61884,
+      "uri": "scene.bin"
+    }
+  ],
+  "materials": [
+    {
+      "alphaMode": "BLEND",
+      "doubleSided": true,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "name": "Crystal",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.55888855459999998,
+          0.27119791510000002,
+          1,
+          0.35999999999999999
+        ],
+        "metallicFactor": 0.71999999999999997,
+        "roughnessFactor": 0.59999999999999998
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Diamond_Crystal_0",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 1,
+            "POSITION": 0,
+            "TANGENT": 2
+          },
+          "indices": 3,
+          "material": 0,
+          "mode": 4
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "children": [
+        1
+      ],
+      "name": "RootNode (gltf orientation matrix)",
+      "rotation": [
+        -0.70710678118654746,
+        -0,
+        -0,
+        0.70710678118654757
+      ]
+    },
+    {
+      "children": [
+        2
+      ],
+      "name": "RootNode (model correction matrix)"
+    },
+    {
+      "children": [
+        3
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        -1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "name": "5a43a134a3fb4f44af38bb586ccd45e7.fbx"
+    },
+    {
+      "children": [
+        4
+      ],
+      "name": ""
+    },
+    {
+      "children": [
+        5,
+        7,
+        9,
+        11,
+        18,
+        19
+      ],
+      "name": "RootNode"
+    },
+    {
+      "children": [
+        6
+      ],
+      "name": "back",
+      "rotation": [
+        -0,
+        -0.7071068286895752,
+        0,
+        0.7071068286895752
+      ],
+      "translation": [
+        -0.1061457023024559,
+        3.8957381248474121,
+        -100.09999847412109
+      ]
+    },
+    {
+      "name": ""
+    },
+    {
+      "children": [
+        8
+      ],
+      "name": "left",
+      "rotation": [
+        0,
+        1.1102230246251565e-16,
+        0,
+        1
+      ],
+      "translation": [
+        -100.11637115478516,
+        1.8218927383422852,
+        -0.16039453446865082
+      ]
+    },
+    {
+      "name": ""
+    },
+    {
+      "children": [
+        10
+      ],
+      "name": "Diamond",
+      "rotation": [
+        -4.3303817420792257e-08,
+        -0.57357645034790039,
+        0.81915205717086792,
+        6.1844261267651746e-08
+      ],
+      "scale": [
+        2.5399999618530273,
+        2.5399999618530273,
+        2.5399999618530273
+      ],
+      "translation": [
+        -3.4694471651164349e-07,
+        35.802288055419922,
+        -13.030966758728027
+      ]
+    },
+    {
+      "mesh": 0,
+      "name": "Diamond_Crystal_0"
+    },
+    {
+      "children": [
+        12,
+        15,
+        16,
+        17
+      ],
+      "name": "LIghts",
+      "rotation": [
+        0,
+        -0.5585709810256958,
+        0,
+        0.8294568657875061
+      ]
+    },
+    {
+      "children": [
+        13
+      ],
+      "name": "spotLight1",
+      "rotation": [
+        0.16234782338142395,
+        0.7848624587059021,
+        -0.55161058902740479,
+        0.23099757730960846
+      ],
+      "translation": [
+        229.89801025390625,
+        152.79144287109375,
+        -361.73187255859375
+      ]
+    },
+    {
+      "children": [
+        14
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        2.2204460492503131e-16,
+        1,
+        0,
+        0,
+        -1,
+        2.2204460492503131e-16,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "name": ""
+    },
+    {
+      "name": ""
+    },
+    {
+      "name": "spotLight2",
+      "rotation": [
+        -0.23287670314311981,
+        -0.06782909482717514,
+        -0.01628432609140873,
+        0.97000128030776978
+      ],
+      "translation": [
+        -79.081771850585938,
+        289.52560424804688,
+        557.696044921875
+      ]
+    },
+    {
+      "name": "spotLight3",
+      "rotation": [
+        -0.033725403249263763,
+        0.92943716049194336,
+        0.35677748918533325,
+        0.087857678532600403
+      ],
+      "translation": [
+        125.55816650390625,
+        603.3316650390625,
+        -663.198974609375
+      ]
+    },
+    {
+      "name": "spotLight4",
+      "rotation": [
+        -0.084658056497573853,
+        0.91467034816741943,
+        -0.26055070757865906,
+        -0.29719442129135132
+      ],
+      "translation": [
+        -318.58328247070312,
+        -336.05813598632812,
+        -443.49227905273438
+      ]
+    },
+    {
+      "name": "mentalrayIbl1",
+      "scale": [
+        33055.25,
+        33055.25,
+        33055.25
+      ]
+    },
+    {
+      "children": [
+        20
+      ],
+      "name": "pointLight1",
+      "translation": [
+        0,
+        18.387170791625977,
+        0
+      ]
+    },
+    {
+      "children": [
+        21
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        2.2204460492503131e-16,
+        1,
+        0,
+        0,
+        -1,
+        2.2204460492503131e-16,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "name": ""
+    },
+    {
+      "name": ""
+    }
+  ],
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "OSG_Scene",
+      "nodes": [
+        0
+      ]
+    }
+  ]
+}
+

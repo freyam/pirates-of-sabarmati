@@ -1,4 +1,14 @@
+@font-face {
+    font-family: "Voltaire";
+    src: url("assets/fonts/Voltaire/Voltaire.woff2") format("woff2"),
+        url("assets/fonts/Voltaire/Voltaire.woff") format("woff");
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
 * {
     margin: 0;
     padding: 0;
+    font-family: Voltaire;
 }
