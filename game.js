@@ -11,7 +11,8 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 let camera, scene, renderer, HUD;
 let controls, water, sun;
 
-let scoreText,
+let chestsLootedText,
+    boatsDestroyedText,
     timeText,
     healthText,
     ammoText,
@@ -22,12 +23,14 @@ let timeElapsed = 0;
 
 const SHIP_SPEED = 1.5;
 const BOAT_SPEED = 1.0;
+const DIMENSION = 100000;
 
-let SCORE = 0;
+let CHESTS_LOOTED = 0;
+let BOATS_DESTROYED = 0;
 
 let ship,
     chests = [],
-    N_CHESTS = 15,
+    N_CHESTS = 30,
     diamonds = [],
     N_DIAMONDS = N_CHESTS,
     boats = [],
@@ -130,7 +133,7 @@ class Ship {
     loadArtillery() {
         if (this.artillery.length < N_CANNONBALLS) {
             const cannonball = new THREE.Mesh(
-                new THREE.SphereGeometry(2, 8, 8),
+                new THREE.SphereGeometry(4, 8, 8),
                 new THREE.MeshBasicMaterial({ color: 0x3a3b3c })
             );
 
@@ -140,7 +143,7 @@ class Ship {
         }
     }
 
-    shoot() {
+    shoot(boats) {
         if (this.artillery.length > 0) {
             const cannonball = this.artillery.pop();
             cannonball.position.set(
@@ -154,17 +157,40 @@ class Ship {
             firingAudio.play();
             firingAudio.volume = 0.5;
 
-            const cannonballSpeed = 0.5;
+            const cannonballSpeed = 1;
 
             const cannonballInterval = setInterval(() => {
                 cannonball.translateX(cannonballSpeed);
 
-                if (
-                    cannonball.position.x > 10000 ||
-                    cannonball.position.x < -10000 ||
-                    cannonball.position.z > 10000 ||
-                    cannonball.position.z < -10000
-                ) {
+                let list_of_boat_healths = [];
+
+                for (let i = 0; i < boats.length; i++) {
+                    list_of_boat_healths.push(boats[i].health);
+                    if (isColliding(cannonball, boats[i].boat)) {
+                        if (boats[i].hit() == "boat_destroyed") {
+                            scene.remove(cannonball);
+                            scene.remove(boats[i].boat);
+
+                            boats.splice(i, 1);
+                            BOATS_DESTROYED++;
+                            i--;
+
+                            clearInterval(cannonballInterval);
+                        }
+                    }
+                }
+
+                console.log(list_of_boat_healths);
+
+                let distance = Math.sqrt(
+                    Math.pow(cannonball.position.x - this.ship.position.x, 2) +
+                        Math.pow(
+                            cannonball.position.z - this.ship.position.z,
+                            2
+                        )
+                );
+
+                if (distance > 1000) {
                     scene.remove(cannonball);
                     clearInterval(cannonballInterval);
                 }
@@ -172,12 +198,7 @@ class Ship {
         }
     }
 
-    hit(cannonball) {
-        this.health -= 20;
-        if (this.health <= 0) {
-            this.health = 0;
-        }
-    }
+    hit() {}
 
     reset() {
         this.ship.position.set(0, -60, 0);
@@ -194,8 +215,8 @@ class Boat {
     constructor(GLTFscene) {
         const boat = GLTFscene;
 
-        let max = 1000;
-        let min = -max;
+        let max = DIMENSION / 50;
+        let min = -DIMENSION / 50;
 
         let randomX = 0;
         let randomZ = 0;
@@ -204,8 +225,8 @@ class Boat {
         let shipZ = 15;
 
         while (
-            Math.abs(randomX - shipX) <= 200 &&
-            Math.abs(randomZ - shipZ) <= 200
+            Math.abs(randomX - shipX) <= DIMENSION / 500 &&
+            Math.abs(randomZ - shipZ) <= DIMENSION / 500
         ) {
             randomX = Math.floor(Math.random() * (max - min + 1)) + min;
             randomZ = Math.floor(Math.random() * (max - min + 1)) + min;
@@ -213,6 +234,7 @@ class Boat {
 
         boat.scale.set(0.05, 0.05, 0.05);
         boat.position.set(randomX, 0, randomZ);
+        boat.rotation.y = (90 * Math.PI) / 180;
 
         scene.add(boat);
 
@@ -227,29 +249,38 @@ class Boat {
             left: false,
             right: false,
         };
+        this.health = 100;
+        this.artillery = [];
     }
 
-    update(shipPosition, shipRotation) {
-        this.boat.rotation.y += 0.025;
-        // this.speed.velocity = BOAT_SPEED;
-        // this.boat.translateX(this.speed.velocity);
+    update(shipPosition) {
+        if (this.health == 0) this.remove();
 
-        // let boatPosition = this.boat.position;
+        let boatPosition = this.boat.position;
 
-        // if (shipPosition.x > boatPosition.x) {
-        //     this.boat.translateX(this.speed.velocity);
-        // }
-        // if (shipPosition.x < boatPosition.x) {
-        //     this.boat.translateX(-this.speed.velocity);
-        // }
-        // if (shipPosition.z > boatPosition.z) {
-        //     this.boat.translateZ(this.speed.velocity);
-        // }
-        // if (shipPosition.z < boatPosition.z) {
-        //     this.boat.translateZ(-this.speed.velocity);
-        // }
+        let x = shipPosition.x - boatPosition.x;
+        let z = shipPosition.z - boatPosition.z;
 
-        // this.boat.rotation.y = shipRotation;
+        let boatAngle = Math.PI - Math.atan2(z, x);
+
+        this.boat.rotation.y = boatAngle;
+
+        if (Math.abs(x) < DIMENSION / 1000 || Math.abs(z) < DIMENSION / 1000) {
+            return;
+        }
+
+        if (shipPosition.x > boatPosition.x) {
+            this.boat.position.x += 0.5;
+        }
+        if (shipPosition.x < boatPosition.x) {
+            this.boat.position.x -= 0.5;
+        }
+        if (shipPosition.z > boatPosition.z) {
+            this.boat.position.z += 0.5;
+        }
+        if (shipPosition.z < boatPosition.z) {
+            this.boat.position.z -= 0.5;
+        }
     }
 
     stop() {
@@ -257,14 +288,14 @@ class Boat {
         this.speed.rotation = 0;
     }
 
-    reset() {
-        this.boat.position.set(15, -60, 60);
-        this.boat.rotation.y = 0;
-        this.boat.visible = true;
-    }
+    shoot() {}
 
-    hide() {
-        this.boat.visible = !this.boat.visible;
+    hit() {
+        this.health -= 20;
+        if (this.health <= 0) {
+            this.health = 0;
+            return "boat_destroyed";
+        }
     }
 
     remove() {
@@ -276,8 +307,8 @@ class Chest {
     constructor(GLTFscene) {
         const chest = GLTFscene;
 
-        let max = 1000;
-        let min = -max;
+        let max = DIMENSION / 50;
+        let min = -DIMENSION / 50;
 
         let randomX = 0;
         let randomZ = 0;
@@ -285,11 +316,11 @@ class Chest {
         let shipX = 15;
         let shipZ = 15;
 
-        while (Math.abs(randomX - shipX) <= 200) {
+        while (Math.abs(randomX - shipX) <= DIMENSION / 500) {
             randomX = Math.floor(Math.random() * (max - min + 1)) + min;
         }
 
-        while (Math.abs(randomZ - shipZ) <= 200) {
+        while (Math.abs(randomZ - shipZ) <= DIMENSION / 500) {
             randomZ = Math.floor(Math.random() * (max - min + 1)) + min;
         }
 
@@ -316,7 +347,7 @@ class Diamond {
     constructor(GLTFscene, chestPosition) {
         const diamond = GLTFscene;
 
-        diamond.scale.set(0.5, 0.5, 0.5);
+        diamond.scale.set(0.75, 0.75, 0.75);
         diamond.position.set(
             chestPosition.x,
             chestPosition.y + 100,
@@ -329,7 +360,7 @@ class Diamond {
         this.isColliding = false;
     }
 
-    update(chest, chestPosition) {
+    update(chestPosition) {
         if (this.diamond) {
             this.diamond.rotation.y += 0.05;
         }
@@ -344,7 +375,7 @@ class Diamond {
         }
 
         if (this.diamond.position.y == chestPosition.y + 30) {
-            SCORE += 1;
+            CHESTS_LOOTED += 1;
 
             reelingAudio.pause();
             chestAudio.play();
@@ -432,7 +463,8 @@ async function init() {
     HUD.style.position = "absolute";
     HUD.style.top = "0";
     HUD.style.left = "0";
-    HUD.style.fontSize = "20px";
+    HUD.style.fontSize = "15px";
+
     document.body.appendChild(HUD);
 
     renderer = new THREE.WebGLRenderer();
@@ -457,7 +489,7 @@ async function init() {
 
     // Water
 
-    const waterGeometry = new THREE.PlaneGeometry(10000, 10000);
+    const waterGeometry = new THREE.PlaneGeometry(DIMENSION, DIMENSION);
 
     water = new Water(waterGeometry, {
         textureWidth: 512,
@@ -488,7 +520,7 @@ async function init() {
     // Skybox
 
     const sky = new Sky();
-    sky.scale.setScalar(10000);
+    sky.scale.setScalar(DIMENSION);
     scene.add(sky);
 
     const skyUniforms = sky.material.uniforms;
@@ -499,8 +531,8 @@ async function init() {
     skyUniforms["mieDirectionalG"].value = 0.8;
 
     const parameters = {
-        elevation: 2,
-        azimuth: 180,
+        elevation: 10,
+        azimuth: 100,
     };
 
     const pmremGenerator = new THREE.PMREMGenerator(renderer);
@@ -580,7 +612,7 @@ async function init() {
         }
 
         if (key == " ") {
-            ship.shoot();
+            ship.shoot(boats);
         }
 
         if (key == "l") {
@@ -634,7 +666,7 @@ async function init() {
 }
 
 function isColliding(object1, object2) {
-    const delta = 75;
+    const delta = 50;
     const conditions = [
         Math.abs(object1.position.x - object2.position.x) < delta,
         Math.abs(object1.position.z - object2.position.z) < delta,
@@ -656,7 +688,9 @@ function checkCollisions() {
 function updateHUD() {
     const zeroPad = (num, places) => String(num).padStart(places, "0");
 
-    scoreText = "Score: " + SCORE + " / " + N_CHESTS;
+    chestsLootedText = "Chests Looted: " + CHESTS_LOOTED + " / " + N_CHESTS;
+    boatsDestroyedText =
+        "Boats Destroyed: " + BOATS_DESTROYED + " / " + N_BOATS;
     timeText =
         "Time: " +
         zeroPad(Math.floor(timeElapsed / 3600), 2) +
@@ -673,11 +707,16 @@ function updateHUD() {
         ship.ship.position.z.toFixed(1);
     shipRotationText =
         "Ship Rotation: " +
-        (Math.abs(((ship.ship.rotation.y * 180) / Math.PI).toFixed(2)) % 360) +
+        zeroPad(
+            Math.abs(((ship.ship.rotation.y * 180) / Math.PI).toFixed(1)) % 360,
+            2
+        ) +
         "°";
 
     HUD.innerHTML =
-        scoreText +
+        chestsLootedText +
+        "  ---  " +
+        boatsDestroyedText +
         "  ---  " +
         timeText +
         "  ---  " +
@@ -702,7 +741,7 @@ function animate() {
     }
 
     for (let i = 0; i < diamonds.length; i++) {
-        let status = diamonds[i].update(chests[i], chests[i].chest.position);
+        let status = diamonds[i].update(chests[i].chest.position);
         if (status == "chest_looted") {
             diamonds[i].remove();
             diamonds.splice(i, 1);
@@ -715,30 +754,10 @@ function animate() {
     }
 
     for (let i = 0; i < boats.length; i++) {
-        if (ship.ship) {
-            let shipPosition = ship.ship.position;
-            let shipRotation = ship.ship.rotation.y;
-            boats[i].update(shipPosition, shipRotation);
-        }
+        if (ship.ship) boats[i].update(ship.ship.position);
     }
 
     if (ship.ship) {
-        // console.log(
-        //     "   " +
-        //         (ship.movement.forward ? 1 : 0) +
-        //         "\n" +
-        //         (ship.movement.left ? 1 : 0) +
-        //         "     " +
-        //         (ship.movement.right ? 1 : 0) +
-        //         "\n" +
-        //         "   " +
-        //         (ship.movement.backward ? 1 : 0) +
-        //         "\n" +
-        //         "   " +
-        //         (ship.movement.boost ? 1 : 0) +
-        //         "\n"
-        // );
-
         let newPosition = new THREE.Vector3();
         newPosition.x =
             Math.cos(Math.PI - ship.ship.rotation.y) * 100 +
@@ -793,11 +812,4 @@ function animate() {
     water.material.uniforms["time"].value += 1.0 / 60.0;
 
     renderer.render(scene, camera);
-}
-
-function distance3D(object1, object2) {
-    return Math.sqrt(
-        Math.pow(object1.position.x - object2.position.x, 2) +
-            Math.pow(object1.position.z - object2.position.z, 2)
-    );
 }
