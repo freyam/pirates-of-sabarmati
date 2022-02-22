@@ -8,18 +8,43 @@ import { Sky } from "three/examples/jsm/objects/Sky.js";
 
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
-let camera, scene, renderer;
+let camera, scene, renderer, HUD;
 let controls, water, sun;
+
+let scoreText,
+    timeText,
+    healthText,
+    ammoText,
+    shipPositionText,
+    shipRotationText;
+
 let timeElapsed = 0;
 
 const SHIP_SPEED = 1.5;
 const BOAT_SPEED = 1.0;
+
+let SCORE = 0;
+
+let ship,
+    chests = [],
+    N_CHESTS = 15,
+    diamonds = [],
+    N_DIAMONDS = N_CHESTS,
+    boats = [],
+    N_BOATS = 5,
+    N_CANNONBALLS = N_BOATS * 10;
+
+let dummyModel = null;
 
 const oceanAudio = new Audio("sounds/ocean.mp3");
 const chestAudio = new Audio("sounds/chest.mp3");
 const shipAudio = new Audio("sounds/ship.mp3");
 const firingAudio = new Audio("sounds/firing.mp3");
 const reelingAudio = new Audio("sounds/reeling.mp3");
+
+shipAudio.loop = true;
+shipAudio.volume = 0.5;
+let isPlayingShipAudio = false;
 
 const loader = new GLTFLoader();
 
@@ -46,15 +71,10 @@ class Ship {
                 right: false,
                 boost: false,
             };
+            this.health = 100;
+            this.artillery = [];
+            this.loadArtillery();
         });
-    }
-
-    getPosition() {
-        return this.boat.position;
-    }
-
-    getRotation() {
-        return this.boat.rotation;
     }
 
     update() {
@@ -107,6 +127,58 @@ class Ship {
         this.speed.rotation = 0;
     }
 
+    loadArtillery() {
+        if (this.artillery.length < N_CANNONBALLS) {
+            const cannonball = new THREE.Mesh(
+                new THREE.SphereGeometry(2, 8, 8),
+                new THREE.MeshBasicMaterial({ color: 0x3a3b3c })
+            );
+
+            while (this.artillery.length < N_CANNONBALLS) {
+                this.artillery.push(cannonball);
+            }
+        }
+    }
+
+    shoot() {
+        if (this.artillery.length > 0) {
+            const cannonball = this.artillery.pop();
+            cannonball.position.set(
+                this.ship.position.x,
+                20,
+                this.ship.position.z
+            );
+            cannonball.rotation.y = this.ship.rotation.y;
+
+            scene.add(cannonball);
+            firingAudio.play();
+            firingAudio.volume = 0.5;
+
+            const cannonballSpeed = 0.5;
+
+            const cannonballInterval = setInterval(() => {
+                cannonball.translateX(cannonballSpeed);
+
+                if (
+                    cannonball.position.x > 10000 ||
+                    cannonball.position.x < -10000 ||
+                    cannonball.position.z > 10000 ||
+                    cannonball.position.z < -10000
+                ) {
+                    scene.remove(cannonball);
+                    clearInterval(cannonballInterval);
+                }
+            });
+        }
+    }
+
+    hit(cannonball) {
+        this.health -= 20;
+        if (this.health <= 0) {
+            this.health = 0;
+        }
+    }
+
     reset() {
         this.ship.position.set(0, -60, 0);
         this.ship.rotation.y = (90 * Math.PI) / 180;
@@ -118,7 +190,6 @@ class Ship {
     }
 }
 
-const ship = new Ship();
 class Boat {
     constructor(GLTFscene) {
         const boat = GLTFscene;
@@ -159,14 +230,26 @@ class Boat {
     }
 
     update(shipPosition, shipRotation) {
-        this.speed.velocity = BOAT_SPEED;
-        this.boat.translateX(this.speed.velocity);
+        this.boat.rotation.y += 0.025;
+        // this.speed.velocity = BOAT_SPEED;
+        // this.boat.translateX(this.speed.velocity);
 
-        let boatPosition = this.boat.position;
+        // let boatPosition = this.boat.position;
 
-        if (shipPosition.x > boatPosition.x) {
-            this.boat.rotation.y += 0.1;
-        }
+        // if (shipPosition.x > boatPosition.x) {
+        //     this.boat.translateX(this.speed.velocity);
+        // }
+        // if (shipPosition.x < boatPosition.x) {
+        //     this.boat.translateX(-this.speed.velocity);
+        // }
+        // if (shipPosition.z > boatPosition.z) {
+        //     this.boat.translateZ(this.speed.velocity);
+        // }
+        // if (shipPosition.z < boatPosition.z) {
+        //     this.boat.translateZ(-this.speed.velocity);
+        // }
+
+        // this.boat.rotation.y = shipRotation;
     }
 
     stop() {
@@ -254,13 +337,14 @@ class Diamond {
         if (this.isColliding) {
             this.diamond.position.y -= 0.5;
             reelingAudio.play();
+            reelingAudio.volume = 0.5;
         } else {
             if (this.diamond.position.y == chestPosition.y + 100) return;
             this.diamond.position.y += 0.5;
         }
 
         if (this.diamond.position.y == chestPosition.y + 30) {
-            chests_looted += 1;
+            SCORE += 1;
 
             reelingAudio.pause();
             chestAudio.play();
@@ -278,35 +362,6 @@ class Diamond {
     }
 }
 
-class CanonBall {
-    constructor(GLTFscene, cannonPosition) {
-        const canonBall = GLTFscene;
-
-        canonBall.scale.set(0.5, 0.5, 0.5);
-        canonBall.position.set(
-            cannonPosition.x,
-            cannonPosition.y,
-            cannonPosition.z
-        );
-
-        scene.add(canonBall);
-
-        this.canonBall = canonBall;
-    }
-
-    update() {
-        if (this.canonBall) {
-            this.canonBall.rotation.y += 0.05;
-        }
-    }
-
-    remove() {
-        scene.remove(this.canonBall);
-    }
-}
-
-let dummyModel = null;
-
 async function loadModel(URI) {
     return new Promise((resolve, reject) => {
         loader.load(URI, (gltf) => {
@@ -314,14 +369,6 @@ async function loadModel(URI) {
         });
     });
 }
-
-let chests_looted = 0;
-
-let chests = [];
-let N_CHESTS = 15;
-
-let diamonds = [];
-let N_DIAMONDS = N_CHESTS;
 
 async function createChest() {
     if (!dummyModel) dummyModel = await loadModel("textures/chest/scene.gltf");
@@ -334,36 +381,60 @@ async function createDiamond(chestPosition) {
     return new Diamond(dummyModel.clone(), chestPosition);
 }
 
-let boats = [];
-let N_BOATS = 3;
-
 async function createBoat() {
     if (!dummyModel) dummyModel = await loadModel("textures/boat/scene.gltf");
     return new Boat(dummyModel.clone());
 }
 
+async function createCanonBall(shipPosition) {
+    if (!dummyModel)
+        dummyModel = await loadModel("textures/cannonball/scene.gltf");
+    return new Canonball(dummyModel.clone(), shipPosition);
+}
+
+// banner();
 init();
 animate();
 
-function renderText(string, color, left, top) {
-    let text = document.createElement("div");
-    text.style.position = "absolute";
+function banner() {
+    let banner = document.getElementById("banner");
+    let color;
+    let isBlack = true;
+    let intervalID = setInterval(() => {
+        color = isBlack
+            ? "#" + Math.floor(Math.random() * 16777215).toString(16)
+            : "black";
+        isBlack = !isBlack;
+        banner.style.transition = "background-color 2s";
+        banner.style.backgroundColor = color;
+    }, 1000);
 
-    text.style.width = "100%";
-    text.style.height = "100%";
-    text.style.top = top + "px";
-    text.style.left = left + "px";
-    text.style.fontSize = "50px";
-    text.style.fontFamily = "Voltaire";
-    text.style.fontWeight = "bold";
-    text.style.zIndex = "1";
+    document.addEventListener("keydown", (event) => {
+        if (event.key == " ") {
+            clearInterval(intervalID);
+            banner.style.backgroundImage = "url(assets/banner.png)";
+            banner.style.transition =
+                "background-image 1s, background-color 2s";
+            banner.style.backgroundColor = "black";
+        }
 
-    text.innerHTML = string;
-    text.style.color = color;
-    document.body.appendChild(text);
+        setTimeout(() => {
+            banner.style.display = "none";
+        }, 3000);
+    });
 }
 
 async function init() {
+    HUD = document.createElement("div");
+    HUD.style.padding = "10px";
+    HUD.style.display = "block";
+    HUD.style.color = "white";
+    HUD.style.position = "absolute";
+    HUD.style.top = "0";
+    HUD.style.left = "0";
+    HUD.style.fontSize = "20px";
+    document.body.appendChild(HUD);
+
     renderer = new THREE.WebGLRenderer();
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -372,32 +443,15 @@ async function init() {
 
     //
 
-    var link = document.createElement("link");
-    link.setAttribute("rel", "stylesheet");
-    link.setAttribute("type", "text/css");
-    link.setAttribute(
-        "href",
-        "https://fonts.googleapis.com/css?family=Voltaire"
-    );
-    document.head.appendChild(link);
-
-    // renderText("Pirates", "#98C1D9", 10, 10);
-    // renderText("of", "#EE6C4D", 150, 10);
-    // renderText("Sabarmati", "#3D5A80", 10, 60);
-
-    //
-
     scene = new THREE.Scene();
 
     const FOV = 60;
     const ASPECT = window.innerWidth / window.innerHeight;
-    let NEAR = 0.1;
+    const NEAR = 0.1;
     const FAR = 2000;
 
     camera = new THREE.PerspectiveCamera(FOV, ASPECT, NEAR, FAR);
     camera.position.set(0, 50, 100);
-
-    //
 
     sun = new THREE.Vector3();
 
@@ -472,6 +526,8 @@ async function init() {
 
     //
 
+    ship = new Ship();
+
     for (let i = 0; i < N_CHESTS; i++) {
         const chest = await createChest();
         chests.push(chest);
@@ -524,11 +580,19 @@ async function init() {
         }
 
         if (key == " ") {
-            ship.stop();
+            ship.shoot();
+        }
+
+        if (key == "l") {
+            ship.loadArtillery();
         }
 
         if (key == "h") {
             ship.hide();
+        }
+
+        if (key == "x") {
+            HUD.style.display = HUD.style.display == "none" ? "block" : "none";
         }
 
         if (key == "r") {
@@ -537,6 +601,10 @@ async function init() {
 
         if (key == "m") {
             oceanAudio.muted = !oceanAudio.muted;
+            shipAudio.muted = !shipAudio.muted;
+            chestAudio.muted = !chestAudio.muted;
+            reelingAudio.muted = !reelingAudio.muted;
+            firingAudio.muted = !firingAudio.muted;
         }
     });
 
@@ -566,11 +634,10 @@ async function init() {
 }
 
 function isColliding(object1, object2) {
+    const delta = 75;
     const conditions = [
-        object1.position.x - object2.position.x < 100,
-        object1.position.x - object2.position.x > -100,
-        object1.position.z - object2.position.z < 50,
-        object1.position.z - object2.position.z > -50,
+        Math.abs(object1.position.x - object2.position.x) < delta,
+        Math.abs(object1.position.z - object2.position.z) < delta,
     ];
 
     return conditions.every((condition) => condition);
@@ -586,19 +653,47 @@ function checkCollisions() {
                 );
 }
 
-shipAudio.loop = true;
-shipAudio.volume = 0.5;
-let isPlayingShipAudio = false;
+function updateHUD() {
+    const zeroPad = (num, places) => String(num).padStart(places, "0");
+
+    scoreText = "Score: " + SCORE + " / " + N_CHESTS;
+    timeText =
+        "Time: " +
+        zeroPad(Math.floor(timeElapsed / 3600), 2) +
+        ":" +
+        zeroPad(zeroPad(Math.floor(timeElapsed / 60), 2) % 60, 2);
+    healthText = "Health: " + ship.health;
+    ammoText = "Ammo: " + ship.artillery.length;
+    shipPositionText =
+        "Ship Position: " +
+        ship.ship.position.x.toFixed(1) +
+        " " +
+        ship.ship.position.y.toFixed(1) +
+        " " +
+        ship.ship.position.z.toFixed(1);
+    shipRotationText =
+        "Ship Rotation: " +
+        (Math.abs(((ship.ship.rotation.y * 180) / Math.PI).toFixed(2)) % 360) +
+        "°";
+
+    HUD.innerHTML =
+        scoreText +
+        "  ---  " +
+        timeText +
+        "  ---  " +
+        healthText +
+        "  ---  " +
+        ammoText +
+        "  ---  " +
+        shipPositionText +
+        "  ---  " +
+        shipRotationText;
+}
 
 function animate() {
     requestAnimationFrame(animate);
 
     timeElapsed += 1;
-
-    document.getElementById("hud-top-time").innerHTML =
-        (timeElapsed / 100).toFixed(1) + "s";
-    document.getElementById("hud-top-score").innerHTML =
-        chests_looted + " / " + N_CHESTS;
 
     ship.update();
 
@@ -643,34 +738,31 @@ function animate() {
         //         (ship.movement.boost ? 1 : 0) +
         //         "\n"
         // );
-        let newPosition = new THREE.Vector3();
 
+        let newPosition = new THREE.Vector3();
         newPosition.x =
             Math.cos(Math.PI - ship.ship.rotation.y) * 100 +
             ship.ship.position.x;
+        newPosition.y = 50;
         newPosition.z =
             Math.sin(Math.PI - ship.ship.rotation.y) * 100 +
             ship.ship.position.z;
-        newPosition.y = 50;
-
-        camera.position.set(newPosition.x, newPosition.y, newPosition.z);
 
         let newLookAt = new THREE.Vector3();
         newLookAt.x = -(
             Math.cos(Math.PI - ship.ship.rotation.y) * 1000 -
             ship.ship.position.x
         );
+        newLookAt.y = 50;
         newLookAt.z = -(
             Math.sin(Math.PI - ship.ship.rotation.y) * 1000 -
             ship.ship.position.z
         );
-        newLookAt.y = 50;
 
+        camera.position.set(newPosition.x, newPosition.y, newPosition.z);
         camera.lookAt(newLookAt.x, newLookAt.y, newLookAt.z);
 
         if (isPlayingShipAudio == false) {
-            // if atleast one movement key is pressed
-
             if (
                 ship.movement.forward == true ||
                 ship.movement.backward == true ||
@@ -696,7 +788,16 @@ function animate() {
     }
 
     checkCollisions();
+    updateHUD();
 
     water.material.uniforms["time"].value += 1.0 / 60.0;
+
     renderer.render(scene, camera);
+}
+
+function distance3D(object1, object2) {
+    return Math.sqrt(
+        Math.pow(object1.position.x - object2.position.x, 2) +
+            Math.pow(object1.position.z - object2.position.z, 2)
+    );
 }
