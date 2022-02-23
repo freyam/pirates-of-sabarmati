@@ -10,7 +10,8 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 let camera, scene, renderer, HUD;
 let controls, water, sun;
-let cameraMode = "3rd-person";
+let cameraModes = ["First Person", "Third Person", "Bird's Eye"];
+let cameraModeIDX = 0;
 
 let chestsLootedText,
     boatsDestroyedText,
@@ -158,7 +159,7 @@ class Ship {
             firingAudio.play();
             firingAudio.volume = 0.5;
 
-            const cannonballSpeed = 0.5;
+            const cannonballSpeed = 1;
 
             const cannonballInterval = setInterval(() => {
                 cannonball.translateX(cannonballSpeed);
@@ -199,7 +200,13 @@ class Ship {
         }
     }
 
-    hit() {}
+    hit() {
+        this.health -= 20;
+        if (this.health <= 0) {
+            this.health = 0;
+            return "ship_destroyed";
+        }
+    }
 
     reset() {
         this.ship.position.set(0, -60, 0);
@@ -282,6 +289,13 @@ class Boat {
         if (shipPosition.z < boatPosition.z) {
             this.boat.position.z -= 0.5;
         }
+
+        // if boat is within a certain distance of the ship, it will shoot
+        if (Math.abs(x) < DIMENSION / 1000 && Math.abs(z) < DIMENSION / 1000) {
+            if (Math.random() < 0.01) {
+                this.shoot();
+            }
+        }
     }
 
     stop() {
@@ -289,7 +303,64 @@ class Boat {
         this.speed.rotation = 0;
     }
 
-    shoot() {}
+    loadArtillery() {
+        if (this.artillery.length < N_CANNONBALLS) {
+            const cannonball = new THREE.Mesh(
+                new THREE.SphereGeometry(4, 8, 8),
+                new THREE.MeshBasicMaterial({ color: 0x3a3b3c })
+            );
+
+            while (this.artillery.length < N_CANNONBALLS) {
+                this.artillery.push(cannonball);
+            }
+        }
+    }
+
+    shoot() {
+        if (this.artillery.length > 0) {
+            const cannonball = this.artillery.pop();
+            cannonball.position.set(
+                this.boat.position.x,
+                10,
+                this.boat.position.z
+            );
+            cannonball.rotation.y = this.boat.rotation.y;
+
+            scene.add(cannonball);
+            // firingAudio.play();
+            firingAudio.volume = 0.5;
+
+            const cannonballSpeed = 0.5;
+
+            const cannonballInterval = setInterval(() => {
+                cannonball.translateX(-cannonballSpeed);
+
+                if (isColliding(cannonball, ship.ship)) {
+                    if (ship.hit() == "ship_destroyed") {
+                        scene.remove(cannonball);
+                        scene.remove(ship.ship);
+
+                        clearInterval(cannonballInterval);
+                    }
+                }
+
+                let distance = Math.sqrt(
+                    Math.pow(cannonball.position.x - this.boat.position.x, 2) +
+                        Math.pow(
+                            cannonball.position.z - this.boat.position.z,
+                            2
+                        )
+                );
+
+                if (distance > 1000) {
+                    scene.remove(cannonball);
+                    clearInterval(cannonballInterval);
+                }
+            });
+        } else {
+            this.loadArtillery();
+        }
+    }
 
     hit() {
         this.health -= 20;
@@ -442,7 +513,7 @@ function banner() {
     }, 1000);
 
     document.addEventListener("keydown", (event) => {
-        if (event.key == " ") {
+        if (event.key == " " || event.key == "Enter") {
             clearInterval(intervalID);
             banner.style.backgroundImage = "url(assets/banner.png)";
             banner.style.transition =
@@ -458,6 +529,7 @@ function banner() {
 
 async function init() {
     HUD = document.createElement("div");
+
     HUD.style.padding = "10px";
     HUD.style.display = "block";
     HUD.style.color = "white";
@@ -633,7 +705,7 @@ async function init() {
         }
 
         if (key == "c") {
-            cameraMode = cameraMode == "birds-eye" ? "3rd-person" : "birds-eye";
+            cameraModeIDX = (cameraModeIDX + 1) % 3;
         }
 
         if (key == "m") {
@@ -731,7 +803,9 @@ function updateHUD() {
         "  ---  " +
         shipPositionText +
         "  ---  " +
-        shipRotationText;
+        shipRotationText +
+        "  ---  " +
+        cameraModes[cameraModeIDX];
 }
 
 function animate() {
@@ -766,13 +840,17 @@ function animate() {
         let newPosition = new THREE.Vector3();
         let newLookAt = new THREE.Vector3();
 
-        if (cameraMode == "3rd-person") {
+        camera.rotation.y = Math.PI - ship.ship.rotation.y;
+
+        let cameraMode = cameraModes[cameraModeIDX];
+
+        if (cameraMode == "First Person") {
             newPosition.x =
-                Math.cos(Math.PI - ship.ship.rotation.y) * 100 +
+                Math.cos(Math.PI - ship.ship.rotation.y) * 10 +
                 ship.ship.position.x;
-            newPosition.y = 50;
+            newPosition.y = 40;
             newPosition.z =
-                Math.sin(Math.PI - ship.ship.rotation.y) * 100 +
+                Math.sin(Math.PI - ship.ship.rotation.y) * 10 +
                 ship.ship.position.z;
 
             newLookAt.x = -(
@@ -784,12 +862,34 @@ function animate() {
                 Math.sin(Math.PI - ship.ship.rotation.y) * 1000 -
                 ship.ship.position.z
             );
-        } else if (cameraMode == "birds-eye") {
+        } else if (cameraMode == "Third Person") {
+            newPosition.x =
+                Math.cos(Math.PI - ship.ship.rotation.y) * 200 +
+                ship.ship.position.x;
+            newPosition.y = 100;
+            newPosition.z =
+                Math.sin(Math.PI - ship.ship.rotation.y) * 200 +
+                ship.ship.position.z;
+
+            newLookAt.x = -(
+                Math.cos(Math.PI - ship.ship.rotation.y) * 1000 -
+                ship.ship.position.x
+            );
+            newLookAt.y = 50;
+            newLookAt.z = -(
+                Math.sin(Math.PI - ship.ship.rotation.y) * 1000 -
+                ship.ship.position.z
+            );
+        } else if (cameraMode == "Bird's Eye") {
             newPosition.x = ship.ship.position.x;
             newPosition.y = 400;
             newPosition.z = ship.ship.position.z;
 
-            newLookAt = ship.ship.position;
+            newLookAt.x =
+                ship.ship.position.x - Math.cos(Math.PI - ship.ship.rotation.y);
+            newLookAt.y = 50;
+            newLookAt.z =
+                ship.ship.position.z - Math.sin(Math.PI - ship.ship.rotation.y);
         }
 
         camera.position.set(newPosition.x, newPosition.y, newPosition.z);
