@@ -10,6 +10,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 let camera, scene, renderer, HUD;
 let controls, water, sun;
+let cameraMode = "3rd-person";
 
 let chestsLootedText,
     boatsDestroyedText,
@@ -157,7 +158,7 @@ class Ship {
             firingAudio.play();
             firingAudio.volume = 0.5;
 
-            const cannonballSpeed = 1;
+            const cannonballSpeed = 0.5;
 
             const cannonballInterval = setInterval(() => {
                 cannonball.translateX(cannonballSpeed);
@@ -631,6 +632,10 @@ async function init() {
             ship.reset();
         }
 
+        if (key == "c") {
+            cameraMode = cameraMode == "birds-eye" ? "3rd-person" : "birds-eye";
+        }
+
         if (key == "m") {
             oceanAudio.muted = !oceanAudio.muted;
             shipAudio.muted = !shipAudio.muted;
@@ -759,24 +764,33 @@ function animate() {
 
     if (ship.ship) {
         let newPosition = new THREE.Vector3();
-        newPosition.x =
-            Math.cos(Math.PI - ship.ship.rotation.y) * 100 +
-            ship.ship.position.x;
-        newPosition.y = 50;
-        newPosition.z =
-            Math.sin(Math.PI - ship.ship.rotation.y) * 100 +
-            ship.ship.position.z;
-
         let newLookAt = new THREE.Vector3();
-        newLookAt.x = -(
-            Math.cos(Math.PI - ship.ship.rotation.y) * 1000 -
-            ship.ship.position.x
-        );
-        newLookAt.y = 50;
-        newLookAt.z = -(
-            Math.sin(Math.PI - ship.ship.rotation.y) * 1000 -
-            ship.ship.position.z
-        );
+
+        if (cameraMode == "3rd-person") {
+            newPosition.x =
+                Math.cos(Math.PI - ship.ship.rotation.y) * 100 +
+                ship.ship.position.x;
+            newPosition.y = 50;
+            newPosition.z =
+                Math.sin(Math.PI - ship.ship.rotation.y) * 100 +
+                ship.ship.position.z;
+
+            newLookAt.x = -(
+                Math.cos(Math.PI - ship.ship.rotation.y) * 1000 -
+                ship.ship.position.x
+            );
+            newLookAt.y = 50;
+            newLookAt.z = -(
+                Math.sin(Math.PI - ship.ship.rotation.y) * 1000 -
+                ship.ship.position.z
+            );
+        } else if (cameraMode == "birds-eye") {
+            newPosition.x = ship.ship.position.x;
+            newPosition.y = 400;
+            newPosition.z = ship.ship.position.z;
+
+            newLookAt = ship.ship.position;
+        }
 
         camera.position.set(newPosition.x, newPosition.y, newPosition.z);
         camera.lookAt(newLookAt.x, newLookAt.y, newLookAt.z);
