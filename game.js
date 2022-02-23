@@ -8,20 +8,27 @@ import { Sky } from "three/examples/jsm/objects/Sky.js";
 
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
+let gameState = "GAME_LOADING";
+let gameAlert = "";
+
 let camera, scene, renderer, HUD;
 let controls, water, sun;
 let cameraModes = ["First Person", "Third Person", "Bird's Eye"];
-let cameraModeIDX = 0;
+let cameraModeIDX = 1;
 
 let chestsLootedText,
     boatsDestroyedText,
     timeText,
     healthText,
+    boostText,
     ammoText,
     shipPositionText,
-    shipRotationText;
+    shipRotationText,
+    distanceTravelledText;
 
 let timeElapsed = 0;
+let boatsDestroyed = false,
+    chestsLooted = false;
 
 const SHIP_SPEED = 1.5;
 const BOAT_SPEED = 1.0;
@@ -32,7 +39,7 @@ let BOATS_DESTROYED = 0;
 
 let ship,
     chests = [],
-    N_CHESTS = 30,
+    N_CHESTS = 15,
     diamonds = [],
     N_DIAMONDS = N_CHESTS,
     boats = [],
@@ -52,7 +59,7 @@ shipAudio.volume = 0.5;
 let isPlayingShipAudio = false;
 
 const loader = new GLTFLoader();
-
+const imageLoader = new THREE.TextureLoader();
 class Ship {
     constructor() {
         loader.load("textures/ship/scene.gltf", (gltf) => {
@@ -76,9 +83,16 @@ class Ship {
                 right: false,
                 boost: false,
             };
-            this.health = 100;
+
             this.artillery = [];
             this.loadArtillery();
+
+            this.health = 100;
+            this.boost = 100;
+
+            this.distanceTravelled = 0.0;
+
+            this.isDestroyed = false;
         });
     }
 
@@ -110,17 +124,22 @@ class Ship {
 
             if (this.movement.backward) this.speed.rotation *= -1;
 
-            if (this.movement.boost) {
+            if (this.movement.boost && this.boost > 0) {
+                this.boost -= 0.5;
                 if (this.movement.forward || this.movement.backward) {
-                    this.speed.velocity = this.speed.velocity * 2;
+                    this.speed.velocity = this.speed.velocity * 2.5;
                 }
                 if (this.movement.left || this.movement.right) {
-                    this.speed.rotation = this.speed.rotation * 2;
+                    this.speed.rotation = this.speed.rotation * 2.5;
                 }
+            } else if (!this.movement.boost && this.boost < 100) {
+                this.boost += 0.1;
             }
 
             this.ship.rotation.y += this.speed.rotation;
             this.ship.translateX(this.speed.velocity);
+
+            this.distanceTravelled += this.speed.velocity;
 
             camera.rotation.y += this.speed.rotation;
             camera.translateX(this.speed.velocity);
@@ -182,7 +201,7 @@ class Ship {
                     }
                 }
 
-                console.log(list_of_boat_healths);
+                // console.log(list_of_boat_healths);
 
                 let distance = Math.sqrt(
                     Math.pow(cannonball.position.x - this.ship.position.x, 2) +
@@ -209,13 +228,19 @@ class Ship {
     }
 
     reset() {
+        this.health = 100;
         this.ship.position.set(0, -60, 0);
         this.ship.rotation.y = (90 * Math.PI) / 180;
         this.ship.visible = true;
+        scene.add(this.ship);
     }
 
     hide() {
         this.ship.visible = !this.ship.visible;
+    }
+
+    remove() {
+        scene.remove(this.ship);
     }
 }
 
@@ -247,24 +272,31 @@ class Boat {
         scene.add(boat);
 
         this.boat = boat;
+
         this.speed = {
             velocity: 0,
             rotation: 0,
         };
+
         this.movement = {
             forward: false,
             backward: false,
             left: false,
             right: false,
         };
+
         this.health = 100;
         this.artillery = [];
+        this.loadArtillery();
+
+        this.isColliding = false;
     }
 
-    update(shipPosition) {
+    update(ship) {
         if (this.health == 0) this.remove();
 
         let boatPosition = this.boat.position;
+        let shipPosition = ship.ship.position;
 
         let x = shipPosition.x - boatPosition.x;
         let z = shipPosition.z - boatPosition.z;
@@ -273,28 +305,19 @@ class Boat {
 
         this.boat.rotation.y = boatAngle;
 
-        if (Math.abs(x) < DIMENSION / 1000 || Math.abs(z) < DIMENSION / 1000) {
+        if (Math.abs(x) < DIMENSION / 1000 && Math.abs(z) < DIMENSION / 1000) {
             return;
         }
 
-        if (shipPosition.x > boatPosition.x) {
-            this.boat.position.x += 0.5;
-        }
-        if (shipPosition.x < boatPosition.x) {
-            this.boat.position.x -= 0.5;
-        }
-        if (shipPosition.z > boatPosition.z) {
-            this.boat.position.z += 0.5;
-        }
-        if (shipPosition.z < boatPosition.z) {
-            this.boat.position.z -= 0.5;
-        }
+        if (shipPosition.x > boatPosition.x) this.boat.position.x += 0.5;
+        if (shipPosition.x < boatPosition.x) this.boat.position.x -= 0.5;
+        if (shipPosition.z > boatPosition.z) this.boat.position.z += 0.5;
+        if (shipPosition.z < boatPosition.z) this.boat.position.z -= 0.5;
 
-        // if boat is within a certain distance of the ship, it will shoot
-        if (Math.abs(x) < DIMENSION / 1000 && Math.abs(z) < DIMENSION / 1000) {
-            if (Math.random() < 0.01) {
-                this.shoot();
-            }
+        let shipHealth = ship.health;
+
+        if (Math.abs(x) < DIMENSION / 1000 || Math.abs(z) < DIMENSION / 1000) {
+            if (Math.random() < 0.0025) this.shoot(shipHealth);
         }
     }
 
@@ -316,8 +339,8 @@ class Boat {
         }
     }
 
-    shoot() {
-        if (this.artillery.length > 0) {
+    shoot(shipHealth) {
+        if (this.artillery.length > 0 && shipHealth > 0) {
             const cannonball = this.artillery.pop();
             cannonball.position.set(
                 this.boat.position.x,
@@ -327,7 +350,7 @@ class Boat {
             cannonball.rotation.y = this.boat.rotation.y;
 
             scene.add(cannonball);
-            // firingAudio.play();
+            firingAudio.play();
             firingAudio.volume = 0.5;
 
             const cannonballSpeed = 0.5;
@@ -340,25 +363,12 @@ class Boat {
                         scene.remove(cannonball);
                         scene.remove(ship.ship);
 
+                        ship.isDestroyed = true;
+
                         clearInterval(cannonballInterval);
                     }
                 }
-
-                let distance = Math.sqrt(
-                    Math.pow(cannonball.position.x - this.boat.position.x, 2) +
-                        Math.pow(
-                            cannonball.position.z - this.boat.position.z,
-                            2
-                        )
-                );
-
-                if (distance > 1000) {
-                    scene.remove(cannonball);
-                    clearInterval(cannonballInterval);
-                }
             });
-        } else {
-            this.loadArtillery();
         }
     }
 
@@ -379,8 +389,8 @@ class Chest {
     constructor(GLTFscene) {
         const chest = GLTFscene;
 
-        let max = DIMENSION / 50;
-        let min = -DIMENSION / 50;
+        let max = DIMENSION / 25;
+        let min = -DIMENSION / 25;
 
         let randomX = 0;
         let randomZ = 0;
@@ -495,13 +505,11 @@ async function createCanonBall(shipPosition) {
     return new Canonball(dummyModel.clone(), shipPosition);
 }
 
-// banner();
-init();
-animate();
+intro();
 
-function banner() {
+function intro() {
     let banner = document.getElementById("banner");
-    let color;
+    let color = "black";
     let isBlack = true;
     let intervalID = setInterval(() => {
         color = isBlack
@@ -515,14 +523,16 @@ function banner() {
     document.addEventListener("keydown", (event) => {
         if (event.key == " " || event.key == "Enter") {
             clearInterval(intervalID);
-            banner.style.backgroundImage = "url(assets/banner.png)";
+            banner.style.backgroundImage = "url(assets/images/banner.png)";
             banner.style.transition =
-                "background-image 1s, background-color 2s";
+                "background-image 2s, background-color 3s";
             banner.style.backgroundColor = "black";
         }
 
         setTimeout(() => {
-            banner.style.display = "none";
+            document.body.removeChild(banner);
+            init();
+            animate();
         }, 3000);
     });
 }
@@ -532,7 +542,7 @@ async function init() {
 
     HUD.style.padding = "10px";
     HUD.style.display = "block";
-    HUD.style.color = "white";
+    HUD.style.color = "#121212";
     HUD.style.position = "absolute";
     HUD.style.top = "0";
     HUD.style.left = "0";
@@ -540,11 +550,17 @@ async function init() {
 
     document.body.appendChild(HUD);
 
-    renderer = new THREE.WebGLRenderer();
+    renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true,
+        precision: "highp",
+        depth: true,
+        stencil: true,
+        premultipliedAlpha: true,
+    });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    document.body.appendChild(renderer.domElement);
 
     //
 
@@ -599,7 +615,7 @@ async function init() {
     const skyUniforms = sky.material.uniforms;
 
     skyUniforms["turbidity"].value = 10;
-    skyUniforms["rayleigh"].value = 1;
+    skyUniforms["rayleigh"].value = 2;
     skyUniforms["mieCoefficient"].value = 0.001;
     skyUniforms["mieDirectionalG"].value = 0.8;
 
@@ -654,6 +670,8 @@ async function init() {
 
     //
 
+    //
+
     window.addEventListener("resize", function () {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
@@ -700,6 +718,11 @@ async function init() {
             HUD.style.display = HUD.style.display == "none" ? "block" : "none";
         }
 
+        if (key == "p") {
+            gameState =
+                gameState == "GAME_PAUSED" ? "GAME_PLAYING" : "GAME_PAUSED";
+        }
+
         if (key == "r") {
             ship.reset();
         }
@@ -740,13 +763,16 @@ async function init() {
             ship.movement.boost = false;
         }
     });
+
+    document.body.appendChild(renderer.domElement);
+    gameState = "GAME_PLAYING";
 }
 
 function isColliding(object1, object2) {
-    const delta = 50;
+    const delta = 25;
     const conditions = [
         Math.abs(object1.position.x - object2.position.x) < delta,
-        Math.abs(object1.position.z - object2.position.z) < delta,
+        Math.abs(object1.position.z - object2.position.z) < delta * 2,
     ];
 
     return conditions.every((condition) => condition);
@@ -755,11 +781,20 @@ function isColliding(object1, object2) {
 function checkCollisions() {
     if (ship.ship)
         for (let i = 0; i < chests.length; ++i)
-            if (diamonds[i].diamond)
+            if (diamonds.length)
                 diamonds[i].isColliding = isColliding(
                     ship.ship,
                     chests[i].chest
                 );
+
+    if (boats.length == N_BOATS)
+        for (let i = 0; i < boats.length; ++i)
+            for (let j = 0; j < boats.length; ++j)
+                if (i != j)
+                    boats[i].isColliding = isColliding(
+                        boats[i].boat,
+                        boats[j].boat
+                    );
 }
 
 function updateHUD() {
@@ -773,22 +808,32 @@ function updateHUD() {
         zeroPad(Math.floor(timeElapsed / 3600), 2) +
         ":" +
         zeroPad(zeroPad(Math.floor(timeElapsed / 60), 2) % 60, 2);
-    healthText = "Health: " + ship.health;
-    ammoText = "Ammo: " + ship.artillery.length;
-    shipPositionText =
-        "Ship Position: " +
-        ship.ship.position.x.toFixed(1) +
-        " " +
-        ship.ship.position.y.toFixed(1) +
-        " " +
-        ship.ship.position.z.toFixed(1);
-    shipRotationText =
-        "Ship Rotation: " +
-        zeroPad(
-            Math.abs(((ship.ship.rotation.y * 180) / Math.PI).toFixed(1)) % 360,
-            2
-        ) +
-        "°";
+
+    if (ship.ship) {
+        ammoText = "Ammo: " + ship.artillery.length;
+        boostText =
+            "Boost: " + (ship.boost > 100 ? 100 : ship.boost.toFixed(0));
+        healthText = "Health: " + ship.health;
+        distanceTravelledText =
+            "Distance Travelled: " +
+            (ship.distanceTravelled / 1000).toFixed(2) +
+            " km";
+        shipPositionText =
+            "Ship Position: " +
+            ship.ship.position.x.toFixed(1) +
+            " " +
+            ship.ship.position.y.toFixed(1) +
+            " " +
+            ship.ship.position.z.toFixed(1);
+        shipRotationText =
+            "Ship Rotation: " +
+            zeroPad(
+                Math.abs(((ship.ship.rotation.y * 180) / Math.PI).toFixed(1)) %
+                    360,
+                2
+            ) +
+            "°";
+    }
 
     HUD.innerHTML =
         chestsLootedText +
@@ -799,7 +844,11 @@ function updateHUD() {
         "  ---  " +
         healthText +
         "  ---  " +
+        boostText +
+        "  ---  " +
         ammoText +
+        "  ---  " +
+        distanceTravelledText +
         "  ---  " +
         shipPositionText +
         "  ---  " +
@@ -809,7 +858,42 @@ function updateHUD() {
 }
 
 function animate() {
+    console.log(gameState + " " + gameAlert);
+
+    /*
+        condition                     -> State     -> Alert
+        ship.isDestroyed              -> GAME_OVER -> YOU DIED!
+        boatsDestroyed                -> GAME_PLAYING -> DESTROYED A BOAT!
+        chestsLooted                  -> GAME_PLAYING -> LOOTED A TREASURE!
+        ship.artillery.length == 0    -> GAME_PLAYING -> OUT OF AMMO!
+
+        gamePaused                    -> GAME_PAUSED -> PAUSED
+        boatsDestroyed == N_BOATS     -> GAME_WON -> YOU WON!
+        chestsLooted == N_CHESTS      -> GAME_WON -> YOU WON!
+     */
+
     requestAnimationFrame(animate);
+
+    if (gameState == "GAME_PLAYING") {
+        if (ship.isDestroyed) {
+            gameState = "GAME_OVER";
+            gameAlert = "YOU DIED!";
+        } else if (BOATS_DESTROYED == N_BOATS || CHESTS_LOOTED == N_CHESTS) {
+            gameState = "GAME_WON";
+            gameAlert = "YOU WON!";
+        } else if (ship.health <= 50) {
+            gameState = "GAME_PLAYING";
+            gameAlert = "LOW HEALTH!";
+        } else if (ship.health <= 20) {
+            gameState = "GAME_PLAYING";
+            gameAlert = "CRITICAL HEALTH!";
+        } else if (ship.artillery.length == 0) {
+            gameState = "GAME_PLAYING";
+            gameAlert = "OUT OF AMMO!";
+        }
+    }
+
+    if (gameState == "GAME_LOADING") return;
 
     timeElapsed += 1;
 
@@ -833,7 +917,7 @@ function animate() {
     }
 
     for (let i = 0; i < boats.length; i++) {
-        if (ship.ship) boats[i].update(ship.ship.position);
+        if (ship.ship) boats[i].update(ship);
     }
 
     if (ship.ship) {
@@ -845,6 +929,8 @@ function animate() {
         let cameraMode = cameraModes[cameraModeIDX];
 
         if (cameraMode == "First Person") {
+            HUD.style.color = "black";
+
             newPosition.x =
                 Math.cos(Math.PI - ship.ship.rotation.y) * 10 +
                 ship.ship.position.x;
@@ -863,6 +949,7 @@ function animate() {
                 ship.ship.position.z
             );
         } else if (cameraMode == "Third Person") {
+            HUD.style.color = "black";
             newPosition.x =
                 Math.cos(Math.PI - ship.ship.rotation.y) * 200 +
                 ship.ship.position.x;
@@ -881,6 +968,7 @@ function animate() {
                 ship.ship.position.z
             );
         } else if (cameraMode == "Bird's Eye") {
+            HUD.style.color = "white";
             newPosition.x = ship.ship.position.x;
             newPosition.y = 400;
             newPosition.z = ship.ship.position.z;
@@ -922,6 +1010,9 @@ function animate() {
 
     checkCollisions();
     updateHUD();
+
+    // handleGameState(gameState);
+    // renderGameAlert(gameAlert);
 
     water.material.uniforms["time"].value += 1.0 / 60.0;
 
