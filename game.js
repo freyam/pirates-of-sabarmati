@@ -2,7 +2,6 @@ import "./style.css";
 
 import * as THREE from "three";
 
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Water } from "three/examples/jsm/objects/Water.js";
 import { Sky } from "three/examples/jsm/objects/Sky.js";
 
@@ -11,8 +10,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 let gameState = "GAME_LOADING";
 let gameAlert = "";
 
-let camera, scene, renderer, HUD;
-let controls, water, sun;
+let camera, scene, renderer, HUD, water, sun;
 let cameraModes = ["First Person", "Third Person", "Bird's Eye"];
 let cameraModeIDX = 1;
 
@@ -39,7 +37,7 @@ let BOATS_DESTROYED = 0;
 
 let ship,
     chests = [],
-    N_CHESTS = 15,
+    N_CHESTS = 10,
     diamonds = [],
     N_DIAMONDS = N_CHESTS,
     boats = [],
@@ -59,7 +57,6 @@ shipAudio.volume = 0.5;
 let isPlayingShipAudio = false;
 
 const loader = new GLTFLoader();
-const imageLoader = new THREE.TextureLoader();
 class Ship {
     constructor() {
         loader.load("textures/ship/scene.gltf", (gltf) => {
@@ -125,15 +122,16 @@ class Ship {
             if (this.movement.backward) this.speed.rotation *= -1;
 
             if (this.movement.boost && this.boost > 0) {
-                this.boost -= 0.5;
                 if (this.movement.forward || this.movement.backward) {
                     this.speed.velocity = this.speed.velocity * 2.5;
+                    this.boost -= 0.5;
                 }
                 if (this.movement.left || this.movement.right) {
                     this.speed.rotation = this.speed.rotation * 2.5;
+                    this.boost -= 0.5;
                 }
             } else if (!this.movement.boost && this.boost < 100) {
-                this.boost += 0.1;
+                this.boost += 0.25;
             }
 
             this.ship.rotation.y += this.speed.rotation;
@@ -152,13 +150,13 @@ class Ship {
     }
 
     loadArtillery() {
-        if (this.artillery.length < N_CANNONBALLS) {
+        if (this.artillery.length < N_CANNONBALLS / 2) {
             const cannonball = new THREE.Mesh(
                 new THREE.SphereGeometry(4, 8, 8),
-                new THREE.MeshBasicMaterial({ color: 0x3a3b3c })
+                new THREE.MeshBasicMaterial({ color: 0x2200b1 })
             );
 
-            while (this.artillery.length < N_CANNONBALLS) {
+            while (this.artillery.length < N_CANNONBALLS / 2) {
                 this.artillery.push(cannonball);
             }
         }
@@ -201,8 +199,6 @@ class Ship {
                     }
                 }
 
-                // console.log(list_of_boat_healths);
-
                 let distance = Math.sqrt(
                     Math.pow(cannonball.position.x - this.ship.position.x, 2) +
                         Math.pow(
@@ -229,9 +225,16 @@ class Ship {
 
     reset() {
         this.health = 100;
+        this.boost = 100;
+        this.distanceTravelled = 0.0;
+        this.isDestroyed = false;
+
+        this.loadArtillery();
+
         this.ship.position.set(0, -60, 0);
         this.ship.rotation.y = (90 * Math.PI) / 180;
         this.ship.visible = true;
+
         scene.add(this.ship);
     }
 
@@ -254,13 +257,7 @@ class Boat {
         let randomX = 0;
         let randomZ = 0;
 
-        let shipX = 15;
-        let shipZ = 15;
-
-        while (
-            Math.abs(randomX - shipX) <= DIMENSION / 500 &&
-            Math.abs(randomZ - shipZ) <= DIMENSION / 500
-        ) {
+        while (randomX <= DIMENSION / 500 && randomZ <= DIMENSION / 500) {
             randomX = Math.floor(Math.random() * (max - min + 1)) + min;
             randomZ = Math.floor(Math.random() * (max - min + 1)) + min;
         }
@@ -330,7 +327,7 @@ class Boat {
         if (this.artillery.length < N_CANNONBALLS) {
             const cannonball = new THREE.Mesh(
                 new THREE.SphereGeometry(4, 8, 8),
-                new THREE.MeshBasicMaterial({ color: 0x3a3b3c })
+                new THREE.MeshBasicMaterial({ color: 0xb12200 })
             );
 
             while (this.artillery.length < N_CANNONBALLS) {
@@ -340,7 +337,7 @@ class Boat {
     }
 
     shoot(shipHealth) {
-        if (this.artillery.length > 0 && shipHealth > 0) {
+        if (this.artillery.length > 0 && shipHealth > 0 && timeElapsed > 1000) {
             const cannonball = this.artillery.pop();
             cannonball.position.set(
                 this.boat.position.x,
@@ -395,14 +392,8 @@ class Chest {
         let randomX = 0;
         let randomZ = 0;
 
-        let shipX = 15;
-        let shipZ = 15;
-
-        while (Math.abs(randomX - shipX) <= DIMENSION / 500) {
+        while (randomX <= DIMENSION / 500 && randomZ <= DIMENSION / 500) {
             randomX = Math.floor(Math.random() * (max - min + 1)) + min;
-        }
-
-        while (Math.abs(randomZ - shipZ) <= DIMENSION / 500) {
             randomZ = Math.floor(Math.random() * (max - min + 1)) + min;
         }
 
@@ -499,47 +490,72 @@ async function createBoat() {
     return new Boat(dummyModel.clone());
 }
 
-async function createCanonBall(shipPosition) {
-    if (!dummyModel)
-        dummyModel = await loadModel("textures/cannonball/scene.gltf");
-    return new Canonball(dummyModel.clone(), shipPosition);
+function createPage(divID, imagePath) {
+    const page = document.createElement("div");
+    page.id = divID;
+    page.style.position = "absolute";
+    page.style.top = "0";
+    page.style.left = "0";
+    page.style.width = "100%";
+    page.style.height = "100vh";
+    page.style.backgroundImage = "url(" + imagePath + ")";
+    page.style.backgroundSize = "cover";
+    page.style.backgroundPosition = "center";
+    page.style.display = "none";
+
+    return page;
 }
 
-intro();
+let banner = createPage("banner", "assets/images/banner-white.png");
+banner.style.display = "block";
+banner.style.backgroundColor = "black";
+document.body.appendChild(banner);
 
-function intro() {
-    let banner = document.getElementById("banner");
-    let color = "black";
-    let isBlack = true;
-    let intervalID = setInterval(() => {
-        color = isBlack
-            ? "#" + Math.floor(Math.random() * 16777215).toString(16)
-            : "black";
-        isBlack = !isBlack;
-        banner.style.transition = "background-color 2s";
-        banner.style.backgroundColor = color;
-    }, 1000);
+banner = document.getElementById("banner");
+let color = "black";
+let isBlack = true;
 
-    document.addEventListener("keydown", (event) => {
-        if (event.key == " " || event.key == "Enter") {
-            clearInterval(intervalID);
-            banner.style.backgroundImage = "url(assets/images/banner.png)";
-            banner.style.transition =
-                "background-image 2s, background-color 3s";
-            banner.style.backgroundColor = "black";
-        }
+let intervalID = setInterval(() => {
+    color = isBlack
+        ? "#" + Math.floor(Math.random() * 16777215).toString(16)
+        : "black";
+    isBlack = !isBlack;
+    banner.style.transition = "background-color 2s ease";
+    banner.style.backgroundColor = color;
+}, 1000);
 
-        setTimeout(() => {
-            document.body.removeChild(banner);
-            init();
-            animate();
-        }, 3000);
-    });
+function loadGame(event) {
+    if (event.key == " " || event.key == "Enter") {
+        clearInterval(intervalID);
+        banner.style.backgroundImage = "url(assets/images/banner.png)";
+        banner.style.transition =
+            "background-image 2s ease, background-color 3s";
+        banner.style.backgroundColor = "black";
+    }
+
+    setTimeout(() => {
+        init();
+        document.getElementById("banner").remove();
+        render();
+        animate();
+    }, 3000);
 }
+
+document.addEventListener("keydown", loadGame);
+
+let loseDIV = createPage("lose-screen", "assets/states/GAME_LOSE.png");
+let pauseDIV = createPage("pause-screen", "assets/states/GAME_PAUSE.png");
+let winDIV = createPage("win-screen", "assets/states/GAME_WIN.png");
+let overDIV = createPage("over-screen", "assets/states/GAME_OVER.png");
+
+document.body.appendChild(pauseDIV);
+document.body.appendChild(overDIV);
+document.body.appendChild(winDIV);
+document.body.appendChild(loseDIV);
 
 async function init() {
     HUD = document.createElement("div");
-
+    HUD.id = "hud-top";
     HUD.style.padding = "10px";
     HUD.style.display = "block";
     HUD.style.color = "#121212";
@@ -547,7 +563,6 @@ async function init() {
     HUD.style.top = "0";
     HUD.style.left = "0";
     HUD.style.fontSize = "15px";
-
     document.body.appendChild(HUD);
 
     renderer = new THREE.WebGLRenderer({
@@ -558,9 +573,11 @@ async function init() {
         stencil: true,
         premultipliedAlpha: true,
     });
+
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.domElement.id = "sabarmati";
 
     //
 
@@ -638,15 +655,6 @@ async function init() {
 
     //
 
-    controls = new OrbitControls(camera, renderer.domElement);
-    controls.maxPolarAngle = Math.PI * 0.495;
-    controls.target.set(0, 10, 0);
-    controls.minDistance = 100.0;
-    controls.maxDistance = 400.0;
-    controls.update();
-
-    //
-
     ship = new Ship();
 
     for (let i = 0; i < N_CHESTS; i++) {
@@ -670,8 +678,6 @@ async function init() {
 
     //
 
-    //
-
     window.addEventListener("resize", function () {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
@@ -679,7 +685,7 @@ async function init() {
         renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    window.addEventListener("keydown", function (event) {
+    function keydown(event) {
         const key = event.key;
 
         if (key == "ArrowUp" || key == "w") {
@@ -719,8 +725,18 @@ async function init() {
         }
 
         if (key == "p") {
+            pauseDIV.style.display =
+                pauseDIV.style.display == "none" ? "block" : "none";
+
             gameState =
                 gameState == "GAME_PAUSED" ? "GAME_PLAYING" : "GAME_PAUSED";
+        }
+
+        if (key == "Escape") {
+            overDIV.style.display = "block";
+            gameState = "GAME_OVER";
+            window.removeEventListener("keydown", keydown);
+            window.removeEventListener("keyup", keyup);
         }
 
         if (key == "r") {
@@ -738,9 +754,9 @@ async function init() {
             reelingAudio.muted = !reelingAudio.muted;
             firingAudio.muted = !firingAudio.muted;
         }
-    });
+    }
 
-    window.addEventListener("keyup", function (event) {
+    function keyup(event) {
         const key = event.key;
 
         if (key == "ArrowUp" || key == "w") {
@@ -762,8 +778,15 @@ async function init() {
         if (key == "b") {
             ship.movement.boost = false;
         }
-    });
+    }
 
+    window.addEventListener("keydown", keydown);
+    window.addEventListener("keyup", keyup);
+
+    document.removeEventListener("keydown", loadGame);
+}
+
+function render() {
     document.body.appendChild(renderer.domElement);
     gameState = "GAME_PLAYING";
 }
@@ -798,18 +821,18 @@ function checkCollisions() {
 }
 
 function updateHUD() {
-    const zeroPad = (num, places) => String(num).padStart(places, "0");
-
-    chestsLootedText = "Chests Looted: " + CHESTS_LOOTED + " / " + N_CHESTS;
-    boatsDestroyedText =
-        "Boats Destroyed: " + BOATS_DESTROYED + " / " + N_BOATS;
-    timeText =
-        "Time: " +
-        zeroPad(Math.floor(timeElapsed / 3600), 2) +
-        ":" +
-        zeroPad(zeroPad(Math.floor(timeElapsed / 60), 2) % 60, 2);
-
     if (ship.ship) {
+        const zeroPad = (num, places) => String(num).padStart(places, "0");
+
+        chestsLootedText = "Chests Looted: " + CHESTS_LOOTED + " / " + N_CHESTS;
+        boatsDestroyedText =
+            "Boats Destroyed: " + BOATS_DESTROYED + " / " + N_BOATS;
+        timeText =
+            "Time: " +
+            zeroPad(Math.floor(timeElapsed / 3600), 2) +
+            ":" +
+            zeroPad(zeroPad(Math.floor(timeElapsed / 60), 2) % 60, 2);
+
         ammoText = "Ammo: " + ship.artillery.length;
         boostText =
             "Boost: " + (ship.boost > 100 ? 100 : ship.boost.toFixed(0));
@@ -833,75 +856,69 @@ function updateHUD() {
                 2
             ) +
             "°";
-    }
 
-    HUD.innerHTML =
-        chestsLootedText +
-        "  ---  " +
-        boatsDestroyedText +
-        "  ---  " +
-        timeText +
-        "  ---  " +
-        healthText +
-        "  ---  " +
-        boostText +
-        "  ---  " +
-        ammoText +
-        "  ---  " +
-        distanceTravelledText +
-        "  ---  " +
-        shipPositionText +
-        "  ---  " +
-        shipRotationText +
-        "  ---  " +
-        cameraModes[cameraModeIDX];
+        HUD.innerHTML =
+            chestsLootedText +
+            "  ---  " +
+            boatsDestroyedText +
+            "  ---  " +
+            timeText +
+            "  ---  " +
+            healthText +
+            "  ---  " +
+            boostText +
+            "  ---  " +
+            ammoText +
+            "  ---  " +
+            distanceTravelledText +
+            "  ---  " +
+            shipPositionText +
+            "  ---  " +
+            shipRotationText +
+            "  ---  " +
+            cameraModes[cameraModeIDX];
+    }
 }
 
 function animate() {
-    console.log(gameState + " " + gameAlert);
-
-    /*
-        condition                     -> State     -> Alert
-        ship.isDestroyed              -> GAME_OVER -> YOU DIED!
-        boatsDestroyed                -> GAME_PLAYING -> DESTROYED A BOAT!
-        chestsLooted                  -> GAME_PLAYING -> LOOTED A TREASURE!
-        ship.artillery.length == 0    -> GAME_PLAYING -> OUT OF AMMO!
-
-        gamePaused                    -> GAME_PAUSED -> PAUSED
-        boatsDestroyed == N_BOATS     -> GAME_WON -> YOU WON!
-        chestsLooted == N_CHESTS      -> GAME_WON -> YOU WON!
-     */
+    console.log("STATE: " + gameState + " --- ALERT: " + gameAlert);
 
     requestAnimationFrame(animate);
 
     if (gameState == "GAME_PLAYING") {
-        if (ship.isDestroyed) {
-            gameState = "GAME_OVER";
-            gameAlert = "YOU DIED!";
-        } else if (BOATS_DESTROYED == N_BOATS || CHESTS_LOOTED == N_CHESTS) {
-            gameState = "GAME_WON";
-            gameAlert = "YOU WON!";
-        } else if (ship.health <= 50) {
-            gameState = "GAME_PLAYING";
-            gameAlert = "LOW HEALTH!";
-        } else if (ship.health <= 20) {
-            gameState = "GAME_PLAYING";
-            gameAlert = "CRITICAL HEALTH!";
-        } else if (ship.artillery.length == 0) {
-            gameState = "GAME_PLAYING";
+        if (ship.health <= 20) gameAlert = "CRITICAL HEALTH!";
+        else if (ship.health <= 50) gameAlert = "LOW HEALTH!";
+        else if (ship.artillery && ship.artillery.length == 0)
             gameAlert = "OUT OF AMMO!";
-        }
+        else if (boats.every((boat) => boat.artillery.length == 0))
+            gameAlert = "ENEMIES OUT OF AMMO!";
     }
 
-    if (gameState == "GAME_LOADING") return;
+    if (ship.isDestroyed) {
+        setTimeout(() => {
+            loseDIV.style.display = "block";
+            window.removeEventListener("keydown", keydown);
+            window.removeEventListener("keyup", keyup);
+        }, 1000);
+        return;
+    }
+
+    if (BOATS_DESTROYED == N_BOATS || CHESTS_LOOTED == N_CHESTS) {
+        setTimeout(() => {
+            winDIV.style.display = "block";
+            window.removeEventListener("keydown", keydown);
+            window.removeEventListener("keyup", keyup);
+        }, 1000);
+        return;
+    }
+
+    if (gameState != "GAME_PLAYING") return;
 
     timeElapsed += 1;
 
     ship.update();
 
-    for (let i = 0; i < chests.length; i++) {
-        chests[i].update();
-    }
+    for (let i = 0; i < chests.length; i++) chests[i].update();
 
     for (let i = 0; i < diamonds.length; i++) {
         let status = diamonds[i].update(chests[i].chest.position);
@@ -916,9 +933,7 @@ function animate() {
         }
     }
 
-    for (let i = 0; i < boats.length; i++) {
-        if (ship.ship) boats[i].update(ship);
-    }
+    for (let i = 0; i < boats.length; i++) if (ship.ship) boats[i].update(ship);
 
     if (ship.ship) {
         let newPosition = new THREE.Vector3();
@@ -1010,9 +1025,6 @@ function animate() {
 
     checkCollisions();
     updateHUD();
-
-    // handleGameState(gameState);
-    // renderGameAlert(gameAlert);
 
     water.material.uniforms["time"].value += 1.0 / 60.0;
 
